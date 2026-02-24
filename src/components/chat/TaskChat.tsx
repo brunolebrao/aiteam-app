@@ -13,7 +13,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { Send, Bot, User, Loader2 } from 'lucide-react'
+import { IoSendOutline, IoChatbubbleEllipsesOutline, IoPersonOutline } from 'react-icons/io5'
+import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { useTaskComments, CommentWithAgent } from '@/hooks/useTaskComments'
 import { Task, Agent } from '@/lib/supabase'
 import { format } from 'date-fns'
@@ -36,11 +37,11 @@ function MessageBubble({ comment, isUser }: { comment: CommentWithAgent; isUser:
         isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
       }`}>
         {isUser ? (
-          <User className="h-4 w-4" />
+          <IoPersonOutline className="h-4 w-4" />
         ) : comment.agent ? (
           <span>{comment.agent.avatar_emoji}</span>
         ) : (
-          <Bot className="h-4 w-4" />
+          <IoChatbubbleEllipsesOutline className="h-4 w-4" />
         )}
       </div>
       <div className={`max-w-[80%] ${isUser ? 'items-end' : 'items-start'}`}>
@@ -146,7 +147,7 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent }: Tas
             </div>
           ) : comments.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-              <Bot className="h-12 w-12 mb-4" />
+              <IoChatbubbleEllipsesOutline className="h-12 w-12 mb-4" />
               <p>Nenhuma mensagem ainda.</p>
               {agent && (
                 <p className="text-sm mt-2">
@@ -166,11 +167,11 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent }: Tas
               {sending && (
                 <div className="flex gap-2">
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                    {agent?.avatar_emoji || <Bot className="h-4 w-4" />}
+                    {agent?.avatar_emoji || <IoChatbubbleEllipsesOutline className="h-4 w-4" />}
                   </div>
                   <Card className="p-3">
                     <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <AiOutlineLoading3Quarters className="h-4 w-4 animate-spin" />
                       <span className="text-sm text-muted-foreground">
                         {agent?.nome || 'Agente'} está pensando...
                       </span>
@@ -204,9 +205,9 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent }: Tas
               className="self-end"
             >
               {sending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <AiOutlineLoading3Quarters className="h-4 w-4 animate-spin" />
               ) : (
-                <Send className="h-4 w-4" />
+                <IoSendOutline className="h-4 w-4" />
               )}
             </Button>
           </div>

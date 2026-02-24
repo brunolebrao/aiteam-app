@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, FolderGit2, Settings, Users, AlertCircle } from 'lucide-react'
+import { IoAdd, IoFolderOpenOutline, IoSettingsOutline, IoPeopleOutline, IoAlertCircleOutline } from 'react-icons/io5'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useProjects, ProjectWithCounts } from '@/hooks/useProjects'
@@ -72,7 +72,7 @@ function ProjectCard({ project }: { project: ProjectWithCounts }) {
           <div className="space-y-3">
             {project.github_repo && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <FolderGit2 className="h-4 w-4" />
+                <IoFolderOpenOutline className="h-4 w-4" />
                 <span>{project.github_repo}</span>
               </div>
             )}
@@ -127,7 +127,7 @@ function NewProjectDialog({ onCreate }: { onCreate: (data: { nome: string; descr
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="h-4 w-4 mr-2" />
+          <IoAdd className="h-4 w-4 mr-2" />
           Novo Projeto
         </Button>
       </DialogTrigger>
@@ -196,13 +196,13 @@ export default function HomePage() {
             <div className="flex items-center gap-2">
               <Link href="/agents">
                 <Button variant="ghost" size="sm">
-                  <Users className="h-4 w-4 mr-2" />
+                  <IoPeopleOutline className="h-4 w-4 mr-2" />
                   Agentes
                 </Button>
               </Link>
               <Link href="/settings">
                 <Button variant="ghost" size="icon">
-                  <Settings className="h-4 w-4" />
+                  <IoSettingsOutline className="h-4 w-4" />
                 </Button>
               </Link>
             </div>
@@ -225,7 +225,7 @@ export default function HomePage() {
         {error && (
           <Card className="mb-6 border-destructive">
             <CardContent className="flex items-center gap-3 py-4">
-              <AlertCircle className="h-5 w-5 text-destructive" />
+              <IoAlertCircleOutline className="h-5 w-5 text-destructive" />
               <div>
                 <p className="font-medium text-destructive">Erro ao carregar projetos</p>
                 <p className="text-sm text-muted-foreground">{error}</p>
@@ -251,7 +251,7 @@ export default function HomePage() {
         ) : projects.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
-              <FolderGit2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <IoFolderOpenOutline className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">Nenhum projeto ainda</h3>
               <p className="text-muted-foreground mb-4">
                 Crie seu primeiro projeto para começar a trabalhar com o time.

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { IoArrowBackOutline, IoSettingsOutline } from 'react-icons/io5'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { supabase, Agent } from '@/lib/supabase'
@@ -86,7 +86,7 @@ export default function AgentsPage() {
             <div className="flex items-center gap-3">
               <Link href="/">
                 <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-4 w-4" />
+                  <IoArrowBackOutline className="h-4 w-4" />
                 </Button>
               </Link>
               <span className="text-2xl">🤖</span>
@@ -94,7 +94,7 @@ export default function AgentsPage() {
             </div>
             <Link href="/settings">
               <Button variant="ghost" size="icon">
-                <Settings className="h-4 w-4" />
+                <IoSettingsOutline className="h-4 w-4" />
               </Button>
             </Link>
           </div>

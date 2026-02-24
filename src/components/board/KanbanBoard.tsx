@@ -5,20 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { 
-  MoreHorizontal, 
-  Plus, 
-  User, 
-  Clock, 
-  AlertCircle,
-  CheckCircle2,
-  Circle,
-  PlayCircle,
-  PauseCircle,
-  XCircle,
-  MessageCircle,
-  Github,
-  ExternalLink
-} from 'lucide-react'
+  IoEllipsisHorizontal,
+  IoAdd,
+  IoPersonOutline,
+  IoTimeOutline,
+  IoAlertCircleOutline,
+  IoCheckmarkCircle,
+  IoEllipseOutline,
+  IoPlayCircleOutline,
+  IoPauseCircleOutline,
+  IoCloseCircleOutline,
+  IoChatbubbleOutline,
+  IoLogoGithub,
+  IoOpenOutline
+} from 'react-icons/io5'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,12 +30,12 @@ import { TasksByStatus, TaskWithAgent } from '@/hooks/useTasks'
 import { Agent } from '@/lib/supabase'
 
 const COLUMNS = [
-  { id: 'backlog', title: 'Backlog', icon: Circle, color: 'text-slate-500' },
-  { id: 'todo', title: 'To Do', icon: PlayCircle, color: 'text-blue-500' },
-  { id: 'doing', title: 'Doing', icon: Clock, color: 'text-yellow-500' },
-  { id: 'review', title: 'Review', icon: PauseCircle, color: 'text-purple-500' },
-  { id: 'done', title: 'Done', icon: CheckCircle2, color: 'text-green-500' },
-  { id: 'blocked', title: 'Blocked', icon: XCircle, color: 'text-red-500' },
+  { id: 'backlog', title: 'Backlog', icon: IoEllipseOutline, color: 'text-slate-500' },
+  { id: 'todo', title: 'To Do', icon: IoPlayCircleOutline, color: 'text-blue-500' },
+  { id: 'doing', title: 'Doing', icon: IoTimeOutline, color: 'text-yellow-500' },
+  { id: 'review', title: 'Review', icon: IoPauseCircleOutline, color: 'text-purple-500' },
+  { id: 'done', title: 'Done', icon: IoCheckmarkCircle, color: 'text-green-500' },
+  { id: 'blocked', title: 'Blocked', icon: IoCloseCircleOutline, color: 'text-red-500' },
 ]
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -109,12 +109,12 @@ function TaskCard({
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
-                      <MoreHorizontal className="h-4 w-4" />
+                      <IoEllipsisHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={onChat}>
-                      <MessageCircle className="h-4 w-4 mr-2" />
+                      <IoChatbubbleOutline className="h-4 w-4 mr-2" />
                       Chat
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={onEdit}>
@@ -122,7 +122,7 @@ function TaskCard({
                     </DropdownMenuItem>
                     {hasGithub && onCreateIssue && (
                       <DropdownMenuItem onClick={onCreateIssue}>
-                        <Github className="h-4 w-4 mr-2" />
+                        <IoLogoGithub className="h-4 w-4 mr-2" />
                         Criar Issue
                       </DropdownMenuItem>
                     )}
@@ -157,7 +157,7 @@ function TaskCard({
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-muted-foreground">
-                          <User className="h-3 w-3" />
+                          <IoPersonOutline className="h-3 w-3" />
                           <span className="text-xs">Atribuir</span>
                         </span>
                       )}
@@ -185,7 +185,7 @@ function TaskCard({
 
                 {task.due_date && (
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
+                    <IoTimeOutline className="h-3 w-3" />
                     {new Date(task.due_date).toLocaleDateString('pt-BR')}
                   </span>
                 )}
@@ -235,7 +235,7 @@ function Column({
         </div>
         {column.id === 'backlog' && (
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onNewTask}>
-            <Plus className="h-4 w-4" />
+            <IoAdd className="h-4 w-4" />
           </Button>
         )}
       </div>

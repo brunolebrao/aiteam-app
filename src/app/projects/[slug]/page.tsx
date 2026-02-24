@@ -23,7 +23,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowLeft, Settings, Plus, FolderGit2 } from 'lucide-react'
+import { IoArrowBackOutline, IoSettingsOutline, IoAdd, IoLogoGithub } from 'react-icons/io5'
 import Link from 'next/link'
 import { supabase, Project, Agent } from '@/lib/supabase'
 import { useTasks, TaskWithAgent } from '@/hooks/useTasks'
@@ -259,7 +259,7 @@ export default function ProjectPage({ params }: PageProps) {
             <div className="flex items-center gap-3">
               <Link href="/">
                 <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-4 w-4" />
+                  <IoArrowBackOutline className="h-4 w-4" />
                 </Button>
               </Link>
               <div 
@@ -270,7 +270,7 @@ export default function ProjectPage({ params }: PageProps) {
                 <h1 className="text-xl font-bold">{project.nome}</h1>
                 {project.github_repo && (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <FolderGit2 className="h-3 w-3" />
+                    <IoLogoGithub className="h-3 w-3" />
                     {project.github_repo}
                   </div>
                 )}
@@ -281,11 +281,11 @@ export default function ProjectPage({ params }: PageProps) {
             </div>
             <div className="flex items-center gap-2">
               <Button onClick={handleNewTask}>
-                <Plus className="h-4 w-4 mr-2" />
+                <IoAdd className="h-4 w-4 mr-2" />
                 Nova Task
               </Button>
               <Button variant="ghost" size="icon">
-                <Settings className="h-4 w-4" />
+                <IoSettingsOutline className="h-4 w-4" />
               </Button>
             </div>
           </div>
