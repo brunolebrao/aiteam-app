@@ -28,6 +28,7 @@ import Link from 'next/link'
 import { supabase, Project, Agent } from '@/lib/supabase'
 import { useTasks, TaskWithAgent } from '@/hooks/useTasks'
 import { KanbanBoard } from '@/components/board/KanbanBoard'
+import { TaskChat } from '@/components/chat/TaskChat'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -48,6 +49,8 @@ export default function ProjectPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<TaskWithAgent | null>(null)
+  const [chatTask, setChatTask] = useState<TaskWithAgent | null>(null)
+  const [chatOpen, setChatOpen] = useState(false)
 
   // Form state
   const [taskTitulo, setTaskTitulo] = useState('')
@@ -152,6 +155,28 @@ export default function ProjectPage({ params }: PageProps) {
     }
   }
 
+  const handleOpenChat = (task: TaskWithAgent) => {
+    setChatTask(task)
+    setChatOpen(true)
+  }
+
+  const handleSendToAgent = async (message: string, agent: Agent): Promise<string> => {
+    // Por enquanto, retorna uma resposta simulada
+    // Em produção, isso chamaria a API do Claude ou o runner local
+    const responses: Record<string, string> = {
+      po: `📋 Entendi! Como PO, vou analisar essa solicitação e criar os requisitos necessários.\n\n**Análise:**\n${message}\n\n**Próximos passos:**\n1. Definir critérios de aceite\n2. Estimar esforço\n3. Priorizar no backlog`,
+      sm: `🎯 Obrigado pela informação! Como SM, vou garantir que o time tenha tudo que precisa.\n\n**Ação:**\n${message}\n\n**Sugestão:**\nVou acompanhar o progresso e remover qualquer impedimento.`,
+      ux: `🎨 Interessante! Vou pensar na melhor experiência para isso.\n\n**Considerações de UX:**\n${message}\n\n**Próximo passo:**\nVou criar um wireframe/spec para validarmos.`,
+      dev: `💻 Entendido! Vou analisar a implementação.\n\n**Análise técnica:**\n${message}\n\n**Plano:**\n1. Verificar código existente\n2. Implementar solução\n3. Testar localmente`,
+      qa: `🧪 Vou verificar isso!\n\n**Plano de teste:**\n${message}\n\n**Casos a testar:**\n1. Cenário principal\n2. Casos de borda\n3. Regressão`,
+    }
+    
+    // Simula delay de "pensamento"
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    
+    return responses[agent.papel] || `Recebi sua mensagem: "${message}". Vou analisar e retornar em breve.`
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -247,6 +272,7 @@ export default function ProjectPage({ params }: PageProps) {
             onDeleteTask={handleDeleteTask}
             onEditTask={handleEditTask}
             onNewTask={handleNewTask}
+            onOpenChat={handleOpenChat}
           />
         )}
       </main>
@@ -333,6 +359,17 @@ export default function ProjectPage({ params }: PageProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Chat */}
+      {chatTask && (
+        <TaskChat
+          task={chatTask}
+          agent={chatTask.assigned_agent || null}
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          onSendToAgent={handleSendToAgent}
+        />
+      )}
     </div>
   )
 }

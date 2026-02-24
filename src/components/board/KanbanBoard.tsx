@@ -14,7 +14,8 @@ import {
   Circle,
   PlayCircle,
   PauseCircle,
-  XCircle
+  XCircle,
+  MessageCircle
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -57,6 +58,7 @@ interface KanbanBoardProps {
   onDeleteTask: (taskId: string) => Promise<void>
   onEditTask: (task: TaskWithAgent) => void
   onNewTask: () => void
+  onOpenChat: (task: TaskWithAgent) => void
 }
 
 function TaskCard({ 
@@ -66,6 +68,7 @@ function TaskCard({
   onAssign,
   onDelete,
   onEdit,
+  onChat,
 }: { 
   task: TaskWithAgent
   index: number
@@ -73,6 +76,7 @@ function TaskCard({
   onAssign: (agentId: string | null) => void
   onDelete: () => void
   onEdit: () => void
+  onChat: () => void
 }) {
   return (
     <Draggable draggableId={task.id} index={index}>
@@ -101,6 +105,10 @@ function TaskCard({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={onChat}>
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Chat
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={onEdit}>
                       Editar
                     </DropdownMenuItem>
@@ -183,6 +191,7 @@ function Column({
   onAssign,
   onDelete,
   onEdit,
+  onChat,
   onNewTask,
 }: { 
   column: typeof COLUMNS[0]
@@ -191,6 +200,7 @@ function Column({
   onAssign: (taskId: string, agentId: string | null) => void
   onDelete: (taskId: string) => void
   onEdit: (task: TaskWithAgent) => void
+  onChat: (task: TaskWithAgent) => void
   onNewTask: () => void
 }) {
   const Icon = column.icon
@@ -230,6 +240,7 @@ function Column({
                 onAssign={(agentId) => onAssign(task.id, agentId)}
                 onDelete={() => onDelete(task.id)}
                 onEdit={() => onEdit(task)}
+                onChat={() => onChat(task)}
               />
             ))}
             {provided.placeholder}
@@ -254,6 +265,7 @@ export function KanbanBoard({
   onDeleteTask,
   onEditTask,
   onNewTask,
+  onOpenChat,
 }: KanbanBoardProps) {
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result
@@ -285,6 +297,7 @@ export function KanbanBoard({
             onAssign={onAssignAgent}
             onDelete={onDeleteTask}
             onEdit={onEditTask}
+            onChat={onOpenChat}
             onNewTask={onNewTask}
           />
         ))}
