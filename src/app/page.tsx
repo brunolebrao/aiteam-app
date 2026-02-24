@@ -16,23 +16,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, FolderGit2, Settings, Users, ArrowRight } from 'lucide-react'
+import { Plus, FolderGit2, Settings, Users, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
-
-// Mock data - será substituído por Supabase
-const mockProjects = [
-  {
-    id: '1',
-    slug: 'lercom',
-    nome: 'LerCom',
-    descricao: 'Plataforma de leitura em grupo',
-    github_repo: 'brunolebrao/lercom-app',
-    status: 'active',
-    cor: '#22c55e',
-    tasks_count: { backlog: 3, doing: 2, review: 1, done: 5 },
-  },
-]
+import { useState } from 'react'
+import { useProjects, ProjectWithCounts } from '@/hooks/useProjects'
 
 const statusColors: Record<string, string> = {
   planning: 'bg-slate-500',
@@ -50,9 +37,10 @@ const statusLabels: Record<string, string> = {
   archived: '📦 Arquivado',
 }
 
-function ProjectCard({ project }: { project: typeof mockProjects[0] }) {
-  const total = Object.values(project.tasks_count).reduce((a, b) => a + b, 0)
-  const done = project.tasks_count.done
+function ProjectCard({ project }: { project: ProjectWithCounts }) {
+  const counts = project.tasks_count
+  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+  const done = counts.done
   const progress = total > 0 ? Math.round((done / total) * 100) : 0
 
   return (
@@ -77,7 +65,7 @@ function ProjectCard({ project }: { project: typeof mockProjects[0] }) {
             </Badge>
           </div>
           <CardDescription className="line-clamp-2">
-            {project.descricao}
+            {project.descricao || 'Sem descrição'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -91,9 +79,9 @@ function ProjectCard({ project }: { project: typeof mockProjects[0] }) {
             
             <div className="flex items-center justify-between text-sm">
               <div className="flex gap-2">
-                <span className="text-muted-foreground">{project.tasks_count.backlog} backlog</span>
-                <span className="text-blue-500">{project.tasks_count.doing} doing</span>
-                <span className="text-green-500">{project.tasks_count.done} done</span>
+                <span className="text-muted-foreground">{counts.backlog} backlog</span>
+                <span className="text-blue-500">{counts.doing} doing</span>
+                <span className="text-green-500">{counts.done} done</span>
               </div>
               <span className="font-medium">{progress}%</span>
             </div>
@@ -111,16 +99,28 @@ function ProjectCard({ project }: { project: typeof mockProjects[0] }) {
   )
 }
 
-function NewProjectDialog() {
+function NewProjectDialog({ onCreate }: { onCreate: (data: { nome: string; descricao?: string; github_repo?: string }) => Promise<void> }) {
   const [open, setOpen] = useState(false)
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
   const [githubRepo, setGithubRepo] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  const handleSubmit = () => {
-    // TODO: Criar projeto no Supabase
-    console.log({ nome, descricao, githubRepo })
-    setOpen(false)
+  const handleSubmit = async () => {
+    if (!nome.trim()) return
+    
+    try {
+      setSaving(true)
+      await onCreate({ nome, descricao, github_repo: githubRepo })
+      setOpen(false)
+      setNome('')
+      setDescricao('')
+      setGithubRepo('')
+    } catch (err) {
+      console.error('Erro ao criar projeto:', err)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -171,8 +171,8 @@ function NewProjectDialog() {
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={!nome.trim()}>
-            Criar Projeto
+          <Button onClick={handleSubmit} disabled={!nome.trim() || saving}>
+            {saving ? 'Criando...' : 'Criar Projeto'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -181,8 +181,7 @@ function NewProjectDialog() {
 }
 
 export default function HomePage() {
-  const [projects, setProjects] = useState(mockProjects)
-  const [loading, setLoading] = useState(false)
+  const { projects, loading, error, createProject } = useProjects()
 
   return (
     <div className="min-h-screen">
@@ -220,8 +219,20 @@ export default function HomePage() {
               Gerencie seus projetos com o time de agentes AI
             </p>
           </div>
-          <NewProjectDialog />
+          <NewProjectDialog onCreate={createProject} />
         </div>
+
+        {error && (
+          <Card className="mb-6 border-destructive">
+            <CardContent className="flex items-center gap-3 py-4">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <div>
+                <p className="font-medium text-destructive">Erro ao carregar projetos</p>
+                <p className="text-sm text-muted-foreground">{error}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {loading ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -245,7 +256,7 @@ export default function HomePage() {
               <p className="text-muted-foreground mb-4">
                 Crie seu primeiro projeto para começar a trabalhar com o time.
               </p>
-              <NewProjectDialog />
+              <NewProjectDialog onCreate={createProject} />
             </CardContent>
           </Card>
         ) : (

@@ -1,130 +1,126 @@
--- Dev Team - Schema inicial
--- Tabelas com prefixo team_ para evitar conflito com outros projetos
+-- AI Team Dashboard - Schema Inicial
+-- Usa o Supabase DEV compartilhado (supabase-dev.lercom.com.br)
 
--- Enum para status do projeto
-CREATE TYPE team_project_status AS ENUM ('planning', 'active', 'paused', 'done', 'archived');
-
--- Enum para tipo de task
-CREATE TYPE team_task_type AS ENUM ('spec', 'ux', 'dev', 'test', 'review', 'deploy', 'bug', 'other');
-
--- Enum para status da task
-CREATE TYPE team_task_status AS ENUM ('backlog', 'todo', 'doing', 'review', 'done', 'blocked');
-
--- Projetos
-CREATE TABLE team_projects (
+-- ===========================================
+-- PROJETOS
+-- ===========================================
+CREATE TABLE IF NOT EXISTS dev_projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT UNIQUE NOT NULL,
   nome TEXT NOT NULL,
   descricao TEXT,
-  
-  -- GitHub integration
-  github_repo TEXT,           -- brunolebrao/lercom-app
-  github_branch TEXT DEFAULT 'dev',
-  
-  -- Contexto do projeto (substitui PROJECT.md)
-  context_md TEXT,            -- Stack, padrões, arquivos-chave
-  
-  status team_project_status DEFAULT 'planning',
-  cor TEXT DEFAULT '#3b82f6', -- Cor do projeto para UI
-  
-  criado_em TIMESTAMPTZ DEFAULT now(),
-  atualizado_em TIMESTAMPTZ DEFAULT now()
-);
-
--- Agentes (personas customizáveis)
-CREATE TABLE team_agents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  slug TEXT UNIQUE NOT NULL,  -- anna, bruce, etc
-  nome TEXT NOT NULL,
-  emoji TEXT DEFAULT '🤖',
-  role TEXT NOT NULL,         -- PO, Dev, QA, etc
-  
-  -- Prompt/persona do agente
-  prompt_md TEXT,
-  
-  -- Cor para UI
+  github_repo TEXT,
+  status TEXT DEFAULT 'planning' CHECK (status IN ('planning', 'active', 'paused', 'done', 'archived')),
   cor TEXT DEFAULT '#6366f1',
-  
-  ativo BOOLEAN DEFAULT true,
-  criado_em TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Tasks
-CREATE TABLE team_tasks (
+-- ===========================================
+-- AGENTES
+-- ===========================================
+CREATE TABLE IF NOT EXISTS dev_agents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID NOT NULL REFERENCES team_projects(id) ON DELETE CASCADE,
-  
+  slug TEXT UNIQUE NOT NULL,
+  nome TEXT NOT NULL,
+  papel TEXT NOT NULL, -- 'po', 'sm', 'ux', 'dev', 'qa'
+  descricao TEXT,
+  avatar_emoji TEXT DEFAULT '🤖',
+  persona_md TEXT, -- conteúdo do arquivo .md do agente
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ===========================================
+-- TASKS
+-- ===========================================
+CREATE TABLE IF NOT EXISTS dev_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES dev_projects(id) ON DELETE CASCADE,
   titulo TEXT NOT NULL,
   descricao TEXT,
-  
-  tipo team_task_type NOT NULL DEFAULT 'other',
-  status team_task_status DEFAULT 'backlog',
-  
-  -- Agente responsável e atual
-  agente_id UUID REFERENCES team_agents(id),
-  agente_atual_id UUID REFERENCES team_agents(id),
-  
-  -- Artefatos gerados (specs, docs, código)
-  artefatos JSONB DEFAULT '[]',  -- [{tipo, titulo, conteudo, url, criado_em}]
-  
-  -- Ordenação dentro do kanban
+  status TEXT DEFAULT 'backlog' CHECK (status IN ('backlog', 'todo', 'doing', 'review', 'done', 'blocked')),
+  prioridade TEXT DEFAULT 'medium' CHECK (prioridade IN ('low', 'medium', 'high', 'urgent')),
+  assigned_agent_id UUID REFERENCES dev_agents(id) ON DELETE SET NULL,
+  parent_task_id UUID REFERENCES dev_tasks(id) ON DELETE SET NULL,
   ordem INT DEFAULT 0,
-  
-  -- Timestamps
-  criado_em TIMESTAMPTZ DEFAULT now(),
-  atualizado_em TIMESTAMPTZ DEFAULT now(),
-  iniciado_em TIMESTAMPTZ,
-  concluido_em TIMESTAMPTZ
+  estimativa_horas DECIMAL(5,2),
+  due_date DATE,
+  tags TEXT[], -- ['bug', 'feature', 'docs']
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Log de atividades
-CREATE TABLE team_activity_log (
+-- ===========================================
+-- COMENTÁRIOS/LOG DE ATIVIDADE
+-- ===========================================
+CREATE TABLE IF NOT EXISTS dev_task_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID REFERENCES team_projects(id) ON DELETE CASCADE,
-  task_id UUID REFERENCES team_tasks(id) ON DELETE CASCADE,
-  agent_id UUID REFERENCES team_agents(id),
-  
-  acao TEXT NOT NULL,  -- created, status_changed, artifact_added, comment
-  detalhes JSONB DEFAULT '{}',
-  
-  criado_em TIMESTAMPTZ DEFAULT now()
+  task_id UUID NOT NULL REFERENCES dev_tasks(id) ON DELETE CASCADE,
+  agent_id UUID REFERENCES dev_agents(id) ON DELETE SET NULL,
+  tipo TEXT DEFAULT 'comment' CHECK (tipo IN ('comment', 'status_change', 'assignment', 'system')),
+  conteudo TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Índices
-CREATE INDEX idx_team_tasks_project ON team_tasks(project_id);
-CREATE INDEX idx_team_tasks_status ON team_tasks(status);
-CREATE INDEX idx_team_tasks_agente ON team_tasks(agente_atual_id);
-CREATE INDEX idx_team_activity_project ON team_activity_log(project_id);
-CREATE INDEX idx_team_activity_task ON team_activity_log(task_id);
+-- ===========================================
+-- INDEXES
+-- ===========================================
+CREATE INDEX IF NOT EXISTS idx_dev_tasks_project ON dev_tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_dev_tasks_status ON dev_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_dev_tasks_assigned ON dev_tasks(assigned_agent_id);
+CREATE INDEX IF NOT EXISTS idx_dev_task_comments_task ON dev_task_comments(task_id);
 
--- Trigger para atualizar atualizado_em
-CREATE OR REPLACE FUNCTION team_update_timestamp()
+-- ===========================================
+-- TRIGGERS - updated_at
+-- ===========================================
+CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.atualizado_em = now();
+  NEW.updated_at = NOW();
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_team_projects_updated
-  BEFORE UPDATE ON team_projects
-  FOR EACH ROW EXECUTE FUNCTION team_update_timestamp();
+DROP TRIGGER IF EXISTS dev_projects_updated_at ON dev_projects;
+CREATE TRIGGER dev_projects_updated_at
+  BEFORE UPDATE ON dev_projects
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-CREATE TRIGGER trigger_team_tasks_updated
-  BEFORE UPDATE ON team_tasks
-  FOR EACH ROW EXECUTE FUNCTION team_update_timestamp();
+DROP TRIGGER IF EXISTS dev_agents_updated_at ON dev_agents;
+CREATE TRIGGER dev_agents_updated_at
+  BEFORE UPDATE ON dev_agents
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- Inserir agentes padrão
-INSERT INTO team_agents (slug, nome, emoji, role, prompt_md, cor) VALUES
-  ('anna', 'Anna', '📋', 'Product Owner', 'Focada em valor para o usuário. Escreve specs claras com critérios de aceite testáveis.', '#ec4899'),
-  ('frank', 'Frank', '📊', 'Scrum Master', 'Organizado e metódico. Quebra specs em tasks técnicas, identifica dependências e bloqueios.', '#f59e0b'),
-  ('rask', 'Rask', '🎨', 'UX/UI Designer', 'Pensa primeiro no usuário. Define fluxos, componentes e copy. Usa componentes existentes.', '#8b5cf6'),
-  ('bruce', 'Bruce', '💻', 'Dev Full-Stack', 'Pragmático. Implementa features end-to-end, testa enquanto desenvolve.', '#22c55e'),
-  ('ali', 'Ali', '🧪', 'QA Engineer', 'Cético e metódico. Assume que vai quebrar. Cria test cases e reporta bugs claramente.', '#f97316'),
-  ('magu', 'Magu', '🧙‍♂️', 'Orchestrator', 'Orquestra o time, delega tasks, mantém contexto entre agentes.', '#6366f1');
+DROP TRIGGER IF EXISTS dev_tasks_updated_at ON dev_tasks;
+CREATE TRIGGER dev_tasks_updated_at
+  BEFORE UPDATE ON dev_tasks
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- Comentários
-COMMENT ON TABLE team_projects IS 'Projetos gerenciados pelo Dev Team';
-COMMENT ON TABLE team_agents IS 'Agentes AI com personas customizáveis';
-COMMENT ON TABLE team_tasks IS 'Tasks do kanban';
-COMMENT ON TABLE team_activity_log IS 'Log de atividades dos agentes';
+-- ===========================================
+-- SEED: Agentes padrão
+-- ===========================================
+INSERT INTO dev_agents (slug, nome, papel, descricao, avatar_emoji) VALUES
+  ('anna', 'Anna', 'po', 'Product Owner - Define requisitos e prioriza backlog', '👩‍💼'),
+  ('frank', 'Frank', 'sm', 'Scrum Master - Facilita processos e remove impedimentos', '🧑‍🏫'),
+  ('rask', 'Rask', 'ux', 'UX Designer - Cria interfaces e experiências', '🎨'),
+  ('bruce', 'Bruce', 'dev', 'Developer - Implementa features e corrige bugs', '👨‍💻'),
+  ('ali', 'Ali', 'qa', 'QA Engineer - Testa e garante qualidade', '🔍')
+ON CONFLICT (slug) DO NOTHING;
+
+-- ===========================================
+-- RLS (básico - sem auth por enquanto)
+-- ===========================================
+ALTER TABLE dev_projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dev_agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dev_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dev_task_comments ENABLE ROW LEVEL SECURITY;
+
+-- Políticas permissivas (ajustar quando tiver auth)
+CREATE POLICY "dev_projects_all" ON dev_projects FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "dev_agents_all" ON dev_agents FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "dev_tasks_all" ON dev_tasks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "dev_task_comments_all" ON dev_task_comments FOR ALL USING (true) WITH CHECK (true);
