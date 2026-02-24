@@ -15,7 +15,9 @@ import {
   PlayCircle,
   PauseCircle,
   XCircle,
-  MessageCircle
+  MessageCircle,
+  Github,
+  ExternalLink
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -53,30 +55,36 @@ const PRIORITY_LABELS: Record<string, string> = {
 interface KanbanBoardProps {
   tasksByStatus: TasksByStatus
   agents: Agent[]
+  githubRepo?: string | null
   onMoveTask: (taskId: string, newStatus: string, newOrder: number) => Promise<void>
   onAssignAgent: (taskId: string, agentId: string | null) => Promise<void>
   onDeleteTask: (taskId: string) => Promise<void>
   onEditTask: (task: TaskWithAgent) => void
   onNewTask: () => void
   onOpenChat: (task: TaskWithAgent) => void
+  onCreateIssue?: (task: TaskWithAgent) => Promise<void>
 }
 
 function TaskCard({ 
   task, 
   index, 
   agents,
+  hasGithub,
   onAssign,
   onDelete,
   onEdit,
   onChat,
+  onCreateIssue,
 }: { 
   task: TaskWithAgent
   index: number
   agents: Agent[]
+  hasGithub?: boolean
   onAssign: (agentId: string | null) => void
   onDelete: () => void
   onEdit: () => void
   onChat: () => void
+  onCreateIssue?: () => void
 }) {
   return (
     <Draggable draggableId={task.id} index={index}>
@@ -112,6 +120,12 @@ function TaskCard({
                     <DropdownMenuItem onClick={onEdit}>
                       Editar
                     </DropdownMenuItem>
+                    {hasGithub && onCreateIssue && (
+                      <DropdownMenuItem onClick={onCreateIssue}>
+                        <Github className="h-4 w-4 mr-2" />
+                        Criar Issue
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="text-destructive" onClick={onDelete}>
                       Excluir
@@ -188,20 +202,24 @@ function Column({
   column, 
   tasks, 
   agents,
+  hasGithub,
   onAssign,
   onDelete,
   onEdit,
   onChat,
   onNewTask,
+  onCreateIssue,
 }: { 
   column: typeof COLUMNS[0]
   tasks: TaskWithAgent[]
   agents: Agent[]
+  hasGithub?: boolean
   onAssign: (taskId: string, agentId: string | null) => void
   onDelete: (taskId: string) => void
   onEdit: (task: TaskWithAgent) => void
   onChat: (task: TaskWithAgent) => void
   onNewTask: () => void
+  onCreateIssue?: (task: TaskWithAgent) => void
 }) {
   const Icon = column.icon
 
@@ -237,10 +255,12 @@ function Column({
                 task={task}
                 index={index}
                 agents={agents}
+                hasGithub={hasGithub}
                 onAssign={(agentId) => onAssign(task.id, agentId)}
                 onDelete={() => onDelete(task.id)}
                 onEdit={() => onEdit(task)}
                 onChat={() => onChat(task)}
+                onCreateIssue={onCreateIssue ? () => onCreateIssue(task) : undefined}
               />
             ))}
             {provided.placeholder}
@@ -260,12 +280,14 @@ function Column({
 export function KanbanBoard({
   tasksByStatus,
   agents,
+  githubRepo,
   onMoveTask,
   onAssignAgent,
   onDeleteTask,
   onEditTask,
   onNewTask,
   onOpenChat,
+  onCreateIssue,
 }: KanbanBoardProps) {
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result
@@ -294,11 +316,13 @@ export function KanbanBoard({
             column={column}
             tasks={tasksByStatus[column.id as keyof TasksByStatus]}
             agents={agents}
+            hasGithub={!!githubRepo}
             onAssign={onAssignAgent}
             onDelete={onDeleteTask}
             onEdit={onEditTask}
             onChat={onOpenChat}
             onNewTask={onNewTask}
+            onCreateIssue={onCreateIssue}
           />
         ))}
       </div>

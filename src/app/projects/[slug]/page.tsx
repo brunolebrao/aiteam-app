@@ -160,6 +160,46 @@ export default function ProjectPage({ params }: PageProps) {
     setChatOpen(true)
   }
 
+  const handleCreateIssue = async (task: TaskWithAgent) => {
+    if (!project?.github_repo) {
+      alert('Este projeto não tem repositório GitHub configurado.')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/github/issues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo: project.github_repo,
+          task: {
+            titulo: task.titulo,
+            descricao: task.descricao,
+            prioridade: task.prioridade,
+            tags: task.tags,
+          },
+          labels: task.tags || [],
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao criar issue')
+      }
+
+      const issue = await response.json()
+      alert(`Issue #${issue.number} criada com sucesso!\n${issue.html_url}`)
+      
+      // Salvar referência da issue na task (metadata)
+      await updateTask(task.id, {
+        metadata: { ...task.metadata, github_issue: issue.number, github_issue_url: issue.html_url }
+      })
+    } catch (err) {
+      console.error('Erro ao criar issue:', err)
+      alert(err instanceof Error ? err.message : 'Erro ao criar issue')
+    }
+  }
+
   const handleSendToAgent = async (message: string, agent: Agent): Promise<string> => {
     // Por enquanto, retorna uma resposta simulada
     // Em produção, isso chamaria a API do Claude ou o runner local
@@ -267,12 +307,14 @@ export default function ProjectPage({ params }: PageProps) {
           <KanbanBoard
             tasksByStatus={tasksByStatus}
             agents={agents}
+            githubRepo={project.github_repo}
             onMoveTask={moveTask}
             onAssignAgent={assignAgent}
             onDeleteTask={handleDeleteTask}
             onEditTask={handleEditTask}
             onNewTask={handleNewTask}
             onOpenChat={handleOpenChat}
+            onCreateIssue={handleCreateIssue}
           />
         )}
       </main>
