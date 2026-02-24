@@ -374,12 +374,12 @@ export default function ProjectPage({ params }: PageProps) {
 
               <div className="space-y-2">
                 <Label>Atribuir para</Label>
-                <Select value={taskAgentId} onValueChange={setTaskAgentId}>
+                <Select value={taskAgentId || '__none__'} onValueChange={(v) => setTaskAgentId(v === '__none__' ? '' : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Ninguém</SelectItem>
+                    <SelectItem value="__none__">Ninguém</SelectItem>
                     {agents.map(agent => (
                       <SelectItem key={agent.id} value={agent.id}>
                         {agent.avatar_emoji} {agent.nome}
