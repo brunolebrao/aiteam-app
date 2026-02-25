@@ -150,7 +150,7 @@ async function createPullRequest(projectPath: string, task: Task): Promise<{ url
       'pr', 'create',
       '--title', prTitle,
       '--body', prBody,
-      '--base', 'main',
+      '--base', 'dev',
     ], projectPath)
     
     // Extrai URL da PR

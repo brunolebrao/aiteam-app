@@ -4,6 +4,12 @@
 
 Sistema de gerenciamento de tasks com agentes AI que executam automaticamente quando tasks são arrastadas para suas colunas no board Kanban.
 
+## 🌳 Git Flow
+
+- **`main`** → Landing page (produção)
+- **`dev`** → Dashboard completo (desenvolvimento ativo)
+- **PRs criadas pelo Runner** → Sempre para `dev`
+
 ---
 
 ## 🎯 Fase 1: Backend (Banco de Dados)
