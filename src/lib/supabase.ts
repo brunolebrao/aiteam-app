@@ -50,6 +50,7 @@ export type Task = {
   progress_log: Array<{ timestamp: string; action: string; details: string }>
   pr_url: string | null
   pr_status: 'pending' | 'approved' | 'merged' | 'closed' | null
+  execution_status: 'pending' | 'running' | 'completed' | null
   created_at: string
   updated_at: string
   // Joins

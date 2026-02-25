@@ -150,6 +150,24 @@ function TaskCard({
                   </Badge>
                 )}
 
+                {task.execution_status === 'pending' && (
+                  <Badge variant="outline" className="text-xs border-slate-400 text-slate-600">
+                    ⏳ Aguardando
+                  </Badge>
+                )}
+
+                {task.execution_status === 'running' && (
+                  <Badge variant="default" className="text-xs bg-blue-500 hover:bg-blue-600 animate-pulse">
+                    🔄 Executando
+                  </Badge>
+                )}
+
+                {task.execution_status === 'completed' && (
+                  <Badge variant="default" className="text-xs bg-green-500 hover:bg-green-600">
+                    ✅ Concluído
+                  </Badge>
+                )}
+
                 {task.tags?.map(tag => (
                   <Badge key={tag} variant="outline" className="text-xs">
                     {tag}

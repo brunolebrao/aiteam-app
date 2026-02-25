@@ -33,6 +33,7 @@ interface Task {
   progress_log: Array<{ timestamp: string; action: string; details: string }>
   pr_url: string | null
   pr_status: string | null
+  execution_status: 'pending' | 'running' | 'completed' | null
 }
 
 interface Agent {
@@ -121,10 +122,22 @@ async function addComment(taskId: string, agentId: string, content: string, tipo
 }
 
 // Atualiza status da task
-async function updateTaskStatus(taskId: string, status: string) {
+async function updateTaskStatus(taskId: string, status: string, execution_status?: string) {
+  const update: any = { status }
+  if (execution_status !== undefined) {
+    update.execution_status = execution_status
+  }
   await supabase
     .from('dev_tasks')
-    .update({ status })
+    .update(update)
+    .eq('id', taskId)
+}
+
+// Atualiza execution_status
+async function updateExecutionStatus(taskId: string, execution_status: string) {
+  await supabase
+    .from('dev_tasks')
+    .update({ execution_status })
     .eq('id', taskId)
 }
 
@@ -310,6 +323,9 @@ async function processTask(task: Task, agent: Agent, project: Project) {
   const prompt = buildPrompt(agent, task, project)
 
   try {
+    // Marca como running
+    await updateExecutionStatus(task.id, 'running')
+    
     // Log: iniciando
     await addProgressLog(task.id, 'started', `Agente ${agent.nome} iniciou trabalho`)
     await addComment(task.id, agent.id, `🚀 Iniciando trabalho (modelo: ${modelBadge})`, 'status_change')
@@ -321,6 +337,9 @@ async function processTask(task: Task, agent: Agent, project: Project) {
     // Adiciona resultado como comentário
     await addComment(task.id, agent.id, result, 'comment')
     await addProgressLog(task.id, 'completed', 'Execução concluída')
+    
+    // Marca como completed
+    await updateExecutionStatus(task.id, 'completed')
 
     // Bruce: criar PR
     if (agent.slug === 'bruce' && project.github_repo) {
@@ -341,7 +360,7 @@ async function processTask(task: Task, agent: Agent, project: Project) {
       }
     }
 
-    // Move para Done
+    // Move para Done (trigger vai limpar execution_status automaticamente)
     await updateTaskStatus(task.id, 'done')
     await addComment(task.id, agent.id, `✅ Task concluída!`, 'status_change')
     await addProgressLog(task.id, 'done', 'Task movida para Done')
@@ -353,7 +372,7 @@ async function processTask(task: Task, agent: Agent, project: Project) {
     await addComment(task.id, agent.id, `❌ Erro: ${error}`, 'system')
     await addProgressLog(task.id, 'error', `Erro: ${error}`)
     
-    // Volta task para backlog em caso de erro
+    // Volta task para backlog em caso de erro (trigger vai resetar execution_status)
     await updateTaskStatus(task.id, 'backlog')
   }
 }
