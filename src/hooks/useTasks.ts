@@ -8,35 +8,41 @@ export type TaskWithAgent = Task & {
 }
 
 export type TasksByStatus = {
+  ideias: TaskWithAgent[]
   backlog: TaskWithAgent[]
-  todo: TaskWithAgent[]
-  doing: TaskWithAgent[]
-  review: TaskWithAgent[]
+  anna: TaskWithAgent[]
+  frank: TaskWithAgent[]
+  rask: TaskWithAgent[]
+  bruce: TaskWithAgent[]
+  ali: TaskWithAgent[]
   done: TaskWithAgent[]
-  blocked: TaskWithAgent[]
 }
 
 export function useTasks(projectId: string) {
   const [tasks, setTasks] = useState<TaskWithAgent[]>([])
   const [tasksByStatus, setTasksByStatus] = useState<TasksByStatus>({
+    ideias: [],
     backlog: [],
-    todo: [],
-    doing: [],
-    review: [],
+    anna: [],
+    frank: [],
+    rask: [],
+    bruce: [],
+    ali: [],
     done: [],
-    blocked: [],
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const organizeTasks = (taskList: TaskWithAgent[]) => {
     const organized: TasksByStatus = {
+      ideias: [],
       backlog: [],
-      todo: [],
-      doing: [],
-      review: [],
+      anna: [],
+      frank: [],
+      rask: [],
+      bruce: [],
+      ali: [],
       done: [],
-      blocked: [],
     }
 
     taskList.forEach(task => {
@@ -90,7 +96,7 @@ export function useTasks(projectId: string) {
     force_opus?: boolean
   }) => {
     try {
-      const maxOrdem = Math.max(0, ...tasks.filter(t => t.status === 'backlog').map(t => t.ordem))
+      const maxOrdem = Math.max(0, ...tasks.filter(t => t.status === 'ideias').map(t => t.ordem))
 
       const { data: newTask, error } = await supabase
         .from('dev_tasks')
@@ -102,7 +108,7 @@ export function useTasks(projectId: string) {
           assigned_agent_id: data.assigned_agent_id || null,
           tags: data.tags || [],
           force_opus: data.force_opus || false,
-          status: 'backlog',
+          status: 'ideias',
           ordem: maxOrdem + 1,
         })
         .select(`*, assigned_agent:dev_agents(*)`)

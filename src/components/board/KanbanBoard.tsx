@@ -30,12 +30,14 @@ import { TasksByStatus, TaskWithAgent } from '@/hooks/useTasks'
 import { Agent } from '@/lib/supabase'
 
 const COLUMNS = [
-  { id: 'backlog', title: 'Backlog', icon: IoEllipseOutline, color: 'text-slate-500' },
-  { id: 'todo', title: 'To Do', icon: IoPlayCircleOutline, color: 'text-blue-500' },
-  { id: 'doing', title: 'Doing', icon: IoTimeOutline, color: 'text-yellow-500' },
-  { id: 'review', title: 'Review', icon: IoPauseCircleOutline, color: 'text-purple-500' },
-  { id: 'done', title: 'Done', icon: IoCheckmarkCircle, color: 'text-green-500' },
-  { id: 'blocked', title: 'Blocked', icon: IoCloseCircleOutline, color: 'text-red-500' },
+  { id: 'ideias', title: '💡 Ideias', icon: IoEllipseOutline, color: 'text-slate-400' },
+  { id: 'backlog', title: '📋 Backlog', icon: IoEllipseOutline, color: 'text-slate-600' },
+  { id: 'anna', title: '👩‍💼 Anna (PO)', icon: IoPersonOutline, color: 'text-indigo-500' },
+  { id: 'frank', title: '🧑‍🏫 Frank (SM)', icon: IoPersonOutline, color: 'text-blue-500' },
+  { id: 'rask', title: '🎨 Rask (UX)', icon: IoPersonOutline, color: 'text-pink-500' },
+  { id: 'bruce', title: '👨‍💻 Bruce (Dev)', icon: IoPersonOutline, color: 'text-purple-500' },
+  { id: 'ali', title: '🔍 Ali (QA)', icon: IoPersonOutline, color: 'text-orange-500' },
+  { id: 'done', title: '✅ Done', icon: IoCheckmarkCircle, color: 'text-green-500' },
 ]
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -242,7 +244,7 @@ function Column({
             {tasks.length}
           </Badge>
         </div>
-        {column.id === 'backlog' && (
+        {column.id === 'ideias' && (
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onNewTask}>
             <IoAdd className="h-4 w-4" />
           </Button>

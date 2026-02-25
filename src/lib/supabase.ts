@@ -37,7 +37,7 @@ export type Task = {
   numero: number | null
   titulo: string
   descricao: string | null
-  status: 'backlog' | 'todo' | 'doing' | 'review' | 'done' | 'blocked'
+  status: 'ideias' | 'backlog' | 'anna' | 'frank' | 'rask' | 'bruce' | 'ali' | 'done'
   prioridade: 'low' | 'medium' | 'high' | 'urgent'
   assigned_agent_id: string | null
   parent_task_id: string | null
