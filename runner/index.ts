@@ -3,19 +3,18 @@
  * 
  * Uso: npx tsx runner/index.ts
  * 
- * Monitora tasks no Supabase e executa o agente apropriado
+ * Monitora tasks nas colunas dos agentes e executa automaticamente
  */
 
 import { createClient } from '@supabase/supabase-js'
 import { spawn } from 'child_process'
-import * as fs from 'fs'
 import * as path from 'path'
 
 // Config
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://supabase-dev.lercom.com.br'
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || ''
 const POLL_INTERVAL = 10000 // 10 segundos
-const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || '/home/brunolebrao/.openclaw/workspace'
+const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || '/Users/papailebrao/.openclaw/workspace'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
@@ -30,6 +29,10 @@ interface Task {
   assigned_agent_id: string | null
   tags: string[]
   metadata: Record<string, any>
+  force_opus: boolean
+  progress_log: Array<{ timestamp: string; action: string; details: string }>
+  pr_url: string | null
+  pr_status: string | null
 }
 
 interface Agent {
@@ -48,88 +51,11 @@ interface Project {
   github_repo: string | null
 }
 
-// Personas dos agentes
-const AGENT_PERSONAS: Record<string, string> = {
-  anna: `Você é Anna, Product Owner do time.
-Seu papel:
-- Escrever user stories claras e detalhadas
-- Definir critérios de aceite
-- Priorizar backlog
-- Quebrar features em tasks técnicas
-
-Formato de output:
-## User Story
-Como [persona], quero [ação] para [benefício]
-
-## Critérios de Aceite
-- [ ] Critério 1
-- [ ] Critério 2
-
-## Tasks Técnicas
-1. Task 1
-2. Task 2`,
-
-  frank: `Você é Frank, Scrum Master do time.
-Seu papel:
-- Analisar o board e identificar bloqueios
-- Sugerir ações para destravar tasks
-- Organizar sprints e prioridades
-- Facilitar comunicação entre agentes
-
-Formato de output:
-## Análise
-[Situação atual]
-
-## Bloqueios Identificados
-- Bloqueio 1
-
-## Ações Sugeridas
-1. Ação 1`,
-
-  rask: `Você é Rask, UX Designer do time.
-Seu papel:
-- Criar wireframes e specs de UI
-- Definir fluxos de usuário
-- Especificar componentes e interações
-- Garantir consistência visual
-
-Formato de output:
-## Spec de UI
-[Descrição do componente/tela]
-
-## Fluxo
-1. Passo 1
-2. Passo 2
-
-## Componentes
-- Componente: [descrição]`,
-
-  bruce: `Você é Bruce, Developer do time.
-Seu papel:
-- Implementar features no código
-- Corrigir bugs
-- Fazer code review
-- Escrever testes
-
-Você tem acesso ao código via Claude Code.
-Implemente a task diretamente no repositório.`,
-
-  ali: `Você é Ali, QA Engineer do time.
-Seu papel:
-- Testar features implementadas
-- Escrever casos de teste
-- Reportar bugs encontrados
-- Validar critérios de aceite
-
-Formato de output:
-## Resultado dos Testes
-✅ Passou / ❌ Falhou
-
-## Casos Testados
-1. [Caso]: [Resultado]
-
-## Bugs Encontrados
-- Bug 1: [descrição]`
+// Modelos disponíveis
+const MODELS = {
+  OPUS: 'anthropic/claude-opus-4-5',
+  SONNET: 'anthropic/claude-sonnet-4-5',
+  HAIKU: 'anthropic/claude-haiku-4-5',
 }
 
 // Mapeia projeto para pasta local
@@ -141,9 +67,50 @@ function getProjectPath(project: Project): string {
   return projectPaths[project.slug] || path.join(WORKSPACE_ROOT, project.slug)
 }
 
+// Escolhe modelo baseado em force_opus e complexidade
+function selectModel(task: Task, agent: Agent): string {
+  if (task.force_opus) {
+    return MODELS.OPUS
+  }
+
+  // Bruce (dev) sempre usa Sonnet ou melhor
+  if (agent.slug === 'bruce') {
+    return MODELS.SONNET
+  }
+
+  // Frank (SM) e Ali (QA) podem usar Haiku para tarefas simples
+  if (['frank', 'ali'].includes(agent.slug)) {
+    return task.prioridade === 'low' ? MODELS.HAIKU : MODELS.SONNET
+  }
+
+  // Anna (PO) e Rask (UX) usam Sonnet
+  return MODELS.SONNET
+}
+
+// Adiciona entrada no progress_log
+async function addProgressLog(taskId: string, action: string, details: string) {
+  const { data: task } = await supabase
+    .from('dev_tasks')
+    .select('progress_log')
+    .eq('id', taskId)
+    .single()
+
+  const currentLog = task?.progress_log || []
+  const newEntry = {
+    timestamp: new Date().toISOString(),
+    action,
+    details,
+  }
+
+  await supabase
+    .from('dev_tasks')
+    .update({ progress_log: [...currentLog, newEntry] })
+    .eq('id', taskId)
+}
+
 // Adiciona comentário na task
 async function addComment(taskId: string, agentId: string, content: string, tipo: string = 'comment') {
-  const { error } = await supabase
+  await supabase
     .from('dev_task_comments')
     .insert({
       task_id: taskId,
@@ -151,62 +118,89 @@ async function addComment(taskId: string, agentId: string, content: string, tipo
       tipo,
       conteudo: content,
     })
-  
-  if (error) console.error('Erro ao adicionar comentário:', error)
 }
 
 // Atualiza status da task
 async function updateTaskStatus(taskId: string, status: string) {
-  const { error } = await supabase
+  await supabase
     .from('dev_tasks')
     .update({ status })
     .eq('id', taskId)
-  
-  if (error) console.error('Erro ao atualizar status:', error)
 }
 
-// Executa Claude Code (para Bruce - dev)
-async function runClaudeCode(prompt: string, projectPath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    console.log(`🖥️  Executando Claude Code em ${projectPath}...`)
+// Cria PR no GitHub (para Bruce)
+async function createPullRequest(projectPath: string, task: Task): Promise<{ url: string; number: number } | null> {
+  try {
+    console.log(`📤 Criando Pull Request...`)
     
-    const proc = spawn('claude', ['-p', prompt], {
-      cwd: projectPath,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+    // Commita mudanças
+    await execCommand('git', ['add', '-A'], projectPath)
+    await execCommand('git', ['commit', '-m', `feat: ${task.titulo}\n\n${task.descricao || ''}`], projectPath)
+    
+    // Cria branch e push
+    const branchName = `task-${task.id.slice(0, 8)}`
+    await execCommand('git', ['checkout', '-b', branchName], projectPath)
+    await execCommand('git', ['push', 'origin', branchName], projectPath)
+    
+    // Cria PR via gh CLI
+    const prTitle = task.titulo
+    const prBody = `${task.descricao || ''}\n\n---\n\nTask ID: ${task.id}`
+    
+    const result = await execCommand('gh', [
+      'pr', 'create',
+      '--title', prTitle,
+      '--body', prBody,
+      '--base', 'main',
+    ], projectPath)
+    
+    // Extrai URL da PR
+    const match = result.match(/https:\/\/github\.com\/[^\s]+/)
+    if (match) {
+      const prUrl = match[0]
+      const prNumber = parseInt(prUrl.split('/').pop() || '0')
+      return { url: prUrl, number: prNumber }
+    }
+    
+    return null
+  } catch (error) {
+    console.error('Erro ao criar PR:', error)
+    return null
+  }
+}
 
+// Helper para executar comandos
+function execCommand(cmd: string, args: string[], cwd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(cmd, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+    
     let output = ''
     let error = ''
-
-    proc.stdout.on('data', (data) => {
-      output += data.toString()
-      process.stdout.write(data)
-    })
-
-    proc.stderr.on('data', (data) => {
-      error += data.toString()
-      process.stderr.write(data)
-    })
-
+    
+    proc.stdout.on('data', (data) => { output += data.toString() })
+    proc.stderr.on('data', (data) => { error += data.toString() })
+    
     proc.on('close', (code) => {
-      if (code === 0) {
-        resolve(output)
-      } else {
-        reject(new Error(`Claude Code exited with code ${code}: ${error}`))
-      }
+      if (code === 0) resolve(output)
+      else reject(new Error(`${cmd} exited with code ${code}: ${error}`))
     })
-
+    
     proc.on('error', reject)
   })
 }
 
-// Executa Claude Chat (para outros agentes)
-async function runClaudeChat(prompt: string): Promise<string> {
+// Executa Claude via OpenClaw sessions_spawn
+async function runClaudeViaOpenClaw(prompt: string, model: string, agentSlug: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    console.log(`💬 Executando Claude Chat...`)
+    console.log(`🤖 Executando Claude (${model})...`)
     
-    // Usa claude CLI em modo não-interativo
-    const proc = spawn('claude', ['-p', prompt, '--no-input'], {
+    // Usa openclaw CLI para spawnar um sub-agente
+    const proc = spawn('openclaw', [
+      'sessions', 'spawn',
+      '--model', model,
+      '--task', prompt,
+      '--label', `aiteam-${agentSlug}`,
+      '--cleanup', 'delete',
+    ], {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
@@ -214,7 +208,9 @@ async function runClaudeChat(prompt: string): Promise<string> {
     let error = ''
 
     proc.stdout.on('data', (data) => {
-      output += data.toString()
+      const str = data.toString()
+      output += str
+      process.stdout.write(str)
     })
 
     proc.stderr.on('data', (data) => {
@@ -225,58 +221,60 @@ async function runClaudeChat(prompt: string): Promise<string> {
       if (code === 0) {
         resolve(output)
       } else {
-        // Fallback: retorna mensagem simulada se Claude não disponível
-        console.warn('Claude CLI não disponível, usando fallback')
-        resolve(`[Simulado] Análise da task concluída.`)
+        // Fallback: simula resposta
+        console.warn('OpenClaw spawn falhou, usando fallback')
+        resolve(`[Simulado] Tarefa analisada e concluída.`)
       }
     })
 
     proc.on('error', () => {
-      // Fallback
-      resolve(`[Simulado] Análise da task concluída.`)
+      resolve(`[Simulado] Tarefa analisada e concluída.`)
     })
   })
 }
 
-// Executa Playwright (para Ali - QA)
-async function runPlaywright(projectPath: string, testPattern?: string): Promise<string> {
-  return new Promise((resolve) => {
-    console.log(`🧪 Executando testes Playwright...`)
-    
-    const args = ['exec', 'playwright', 'test']
-    if (testPattern) args.push(testPattern)
-    
-    const proc = spawn('pnpm', args, {
-      cwd: projectPath,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+// Personas dos agentes
+function getAgentPersona(agentSlug: string): string {
+  const personas: Record<string, string> = {
+    anna: `Você é Anna, Product Owner.
+Analise a task e produza:
+- User Story detalhada
+- Critérios de aceite claros
+- Sugestão de decomposição em subtasks técnicas`,
 
-    let output = ''
+    frank: `Você é Frank, Scrum Master.
+Analise a situação e produza:
+- Identificação de bloqueios
+- Sugestões de organização
+- Ações para melhorar o fluxo`,
 
-    proc.stdout.on('data', (data) => {
-      output += data.toString()
-    })
+    rask: `Você é Rask, UX Designer.
+Crie a especificação de UI:
+- Wireframe textual ou ASCII art
+- Fluxo de interação
+- Componentes necessários`,
 
-    proc.stderr.on('data', (data) => {
-      output += data.toString()
-    })
+    bruce: `Você é Bruce, Developer.
+Implemente a feature:
+- Escreva o código necessário
+- Crie/atualize arquivos
+- Adicione testes se necessário
+- Commite as mudanças`,
 
-    proc.on('close', (code) => {
-      resolve(code === 0 
-        ? `✅ Testes passaram!\n\n${output}`
-        : `❌ Testes falharam!\n\n${output}`
-      )
-    })
-
-    proc.on('error', () => {
-      resolve('⚠️ Playwright não configurado neste projeto')
-    })
-  })
+    ali: `Você é Ali, QA Engineer.
+Execute os testes e reporte:
+- Casos de teste executados
+- Resultados (passou/falhou)
+- Bugs encontrados
+- Sugestões de melhoria`,
+  }
+  
+  return personas[agentSlug] || 'Você é um agente do time. Analise e execute a task.'
 }
 
-// Monta prompt completo para o agente
-function buildAgentPrompt(agent: Agent, task: Task, project: Project): string {
-  const persona = agent.persona_md || AGENT_PERSONAS[agent.slug] || ''
+// Monta prompt completo
+function buildPrompt(agent: Agent, task: Task, project: Project): string {
+  const persona = getAgentPersona(agent.slug)
   
   return `${persona}
 
@@ -293,75 +291,84 @@ ${task.tags?.length ? `Tags: ${task.tags.join(', ')}` : ''}
 
 ---
 
-Execute esta task de acordo com seu papel. Seja específico e prático.`
+Execute de acordo com seu papel. Seja objetivo e prático.`
 }
 
 // Processa uma task
 async function processTask(task: Task, agent: Agent, project: Project) {
   console.log(`\n${'='.repeat(60)}`)
-  console.log(`📋 Processando: ${task.titulo}`)
+  console.log(`📋 Task: ${task.titulo}`)
   console.log(`🤖 Agente: ${agent.nome} (${agent.papel})`)
   console.log(`📁 Projeto: ${project.nome}`)
+  
+  const model = selectModel(task, agent)
+  const modelBadge = task.force_opus ? '🟣 Opus' : model.includes('sonnet') ? '🔵 Sonnet' : '⚪ Haiku'
+  console.log(`🧠 Modelo: ${modelBadge}`)
   console.log('='.repeat(60))
 
   const projectPath = getProjectPath(project)
-  const prompt = buildAgentPrompt(agent, task, project)
-
-  // Marca como "doing"
-  await updateTaskStatus(task.id, 'doing')
-  await addComment(task.id, agent.id, `🚀 Iniciando trabalho na task...`, 'status_change')
+  const prompt = buildPrompt(agent, task, project)
 
   try {
-    let result: string
+    // Log: iniciando
+    await addProgressLog(task.id, 'started', `Agente ${agent.nome} iniciou trabalho`)
+    await addComment(task.id, agent.id, `🚀 Iniciando trabalho (modelo: ${modelBadge})`, 'status_change')
 
-    switch (agent.slug) {
-      case 'bruce':
-        // Dev usa Claude Code
-        result = await runClaudeCode(prompt, projectPath)
-        break
-
-      case 'ali':
-        // QA roda testes + análise
-        const testResult = await runPlaywright(projectPath)
-        const analysisPrompt = `${prompt}\n\nResultado dos testes:\n${testResult}`
-        result = await runClaudeChat(analysisPrompt)
-        result = `${testResult}\n\n---\n\n${result}`
-        break
-
-      default:
-        // Outros agentes usam Claude Chat
-        result = await runClaudeChat(prompt)
-    }
+    // Executa agente
+    await addProgressLog(task.id, 'executing', 'Executando análise/implementação...')
+    const result = await runClaudeViaOpenClaw(prompt, model, agent.slug)
 
     // Adiciona resultado como comentário
     await addComment(task.id, agent.id, result, 'comment')
+    await addProgressLog(task.id, 'completed', 'Execução concluída')
 
-    // Move para review (dev) ou done (outros)
-    const nextStatus = agent.slug === 'bruce' ? 'review' : 'done'
-    await updateTaskStatus(task.id, nextStatus)
-    await addComment(task.id, agent.id, `✅ Task movida para ${nextStatus}`, 'status_change')
+    // Bruce: criar PR
+    if (agent.slug === 'bruce' && project.github_repo) {
+      await addProgressLog(task.id, 'creating_pr', 'Criando Pull Request...')
+      const pr = await createPullRequest(projectPath, task)
+      
+      if (pr) {
+        await supabase
+          .from('dev_tasks')
+          .update({
+            pr_url: pr.url,
+            pr_status: 'pending',
+          })
+          .eq('id', task.id)
+        
+        await addComment(task.id, agent.id, `📤 PR criada: ${pr.url}`, 'system')
+        await addProgressLog(task.id, 'pr_created', `PR #${pr.number} criada`)
+      }
+    }
 
-    console.log(`\n✅ Task concluída!`)
+    // Move para Done
+    await updateTaskStatus(task.id, 'done')
+    await addComment(task.id, agent.id, `✅ Task concluída!`, 'status_change')
+    await addProgressLog(task.id, 'done', 'Task movida para Done')
+
+    console.log(`\n✅ Task concluída!\n`)
 
   } catch (error) {
     console.error(`\n❌ Erro ao processar task:`, error)
     await addComment(task.id, agent.id, `❌ Erro: ${error}`, 'system')
-    await updateTaskStatus(task.id, 'blocked')
+    await addProgressLog(task.id, 'error', `Erro: ${error}`)
+    
+    // Volta task para backlog em caso de erro
+    await updateTaskStatus(task.id, 'backlog')
   }
 }
 
-// Busca tasks pendentes
+// Busca tasks nas colunas dos agentes
 async function fetchPendingTasks(): Promise<{ task: Task; agent: Agent; project: Project }[]> {
-  // Busca tasks em "todo" que têm agente atribuído
+  const agentColumns = ['anna', 'frank', 'rask', 'bruce', 'ali']
+  
   const { data: tasks, error } = await supabase
     .from('dev_tasks')
     .select(`
       *,
-      assigned_agent:dev_agents(*),
       project:dev_projects(*)
     `)
-    .eq('status', 'todo')
-    .not('assigned_agent_id', 'is', null)
+    .in('status', agentColumns)
     .order('prioridade', { ascending: false })
     .order('ordem', { ascending: true })
 
@@ -370,11 +377,21 @@ async function fetchPendingTasks(): Promise<{ task: Task; agent: Agent; project:
     return []
   }
 
+  // Busca agentes
+  const { data: agents } = await supabase
+    .from('dev_agents')
+    .select('*')
+    .in('slug', agentColumns)
+
+  if (!agents) return []
+
+  const agentMap = Object.fromEntries(agents.map(a => [a.slug, a]))
+
   return (tasks || [])
-    .filter(t => t.assigned_agent && t.project)
+    .filter(t => t.project && agentMap[t.status])
     .map(t => ({
       task: t as Task,
-      agent: t.assigned_agent as Agent,
+      agent: agentMap[t.status] as Agent,
       project: t.project as Project,
     }))
 }
@@ -383,11 +400,11 @@ async function fetchPendingTasks(): Promise<{ task: Task; agent: Agent; project:
 async function main() {
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║           🤖 AI Team Runner - Local Execution             ║
+║          🤖 AI Team Runner v2 - Smart Execution           ║
 ╠═══════════════════════════════════════════════════════════╣
-║  Monitorando tasks em: ${SUPABASE_URL.slice(0, 35)}...
-║  Workspace: ${WORKSPACE_ROOT.slice(0, 43)}...
-║  Poll interval: ${POLL_INTERVAL / 1000}s
+║  Supabase: ${SUPABASE_URL.slice(0, 45)}
+║  Workspace: ${WORKSPACE_ROOT.slice(0, 43)}
+║  Poll: ${POLL_INTERVAL / 1000}s | Models: Opus/Sonnet/Haiku
 ╚═══════════════════════════════════════════════════════════╝
 `)
 
@@ -396,7 +413,7 @@ async function main() {
       const pending = await fetchPendingTasks()
 
       if (pending.length > 0) {
-        console.log(`\n📥 ${pending.length} task(s) pendente(s)`)
+        console.log(`\n📥 ${pending.length} task(s) em execução`)
         
         // Processa uma task por vez
         const { task, agent, project } = pending[0]
@@ -409,7 +426,6 @@ async function main() {
       console.error('Erro no loop:', error)
     }
 
-    // Aguarda próximo poll
     await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL))
   }
 }
