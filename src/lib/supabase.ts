@@ -46,6 +46,10 @@ export type Task = {
   due_date: string | null
   tags: string[]
   metadata: Record<string, unknown>
+  force_opus: boolean
+  progress_log: Array<{ timestamp: string; action: string; details: string }>
+  pr_url: string | null
+  pr_status: 'pending' | 'approved' | 'merged' | 'closed' | null
   created_at: string
   updated_at: string
   // Joins

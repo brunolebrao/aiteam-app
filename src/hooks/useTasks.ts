@@ -87,6 +87,7 @@ export function useTasks(projectId: string) {
     prioridade?: string
     assigned_agent_id?: string
     tags?: string[]
+    force_opus?: boolean
   }) => {
     try {
       const maxOrdem = Math.max(0, ...tasks.filter(t => t.status === 'backlog').map(t => t.ordem))
@@ -100,6 +101,7 @@ export function useTasks(projectId: string) {
           prioridade: data.prioridade || 'medium',
           assigned_agent_id: data.assigned_agent_id || null,
           tags: data.tags || [],
+          force_opus: data.force_opus || false,
           status: 'backlog',
           ordem: maxOrdem + 1,
         })

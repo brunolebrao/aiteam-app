@@ -142,6 +142,12 @@ function TaskCard({
                   {PRIORITY_LABELS[task.prioridade]}
                 </Badge>
 
+                {task.force_opus && (
+                  <Badge variant="default" className="text-xs bg-purple-500 hover:bg-purple-600">
+                    🟣 Opus
+                  </Badge>
+                )}
+
                 {task.tags?.map(tag => (
                   <Badge key={tag} variant="outline" className="text-xs">
                     {tag}

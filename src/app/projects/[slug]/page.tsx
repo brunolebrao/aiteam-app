@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { IoArrowBackOutline, IoSettingsOutline, IoAdd, IoLogoGithub } from 'react-icons/io5'
 import Link from 'next/link'
 import { supabase, Project, Agent } from '@/lib/supabase'
@@ -57,6 +58,7 @@ export default function ProjectPage({ params }: PageProps) {
   const [taskDescricao, setTaskDescricao] = useState('')
   const [taskPrioridade, setTaskPrioridade] = useState('medium')
   const [taskAgentId, setTaskAgentId] = useState<string>('')
+  const [taskForceOpus, setTaskForceOpus] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const { 
@@ -107,6 +109,7 @@ export default function ProjectPage({ params }: PageProps) {
     setTaskDescricao('')
     setTaskPrioridade('medium')
     setTaskAgentId('')
+    setTaskForceOpus(false)
     setTaskDialogOpen(true)
   }
 
@@ -116,6 +119,7 @@ export default function ProjectPage({ params }: PageProps) {
     setTaskDescricao(task.descricao || '')
     setTaskPrioridade(task.prioridade)
     setTaskAgentId(task.assigned_agent_id || '')
+    setTaskForceOpus(task.force_opus || false)
     setTaskDialogOpen(true)
   }
 
@@ -131,6 +135,7 @@ export default function ProjectPage({ params }: PageProps) {
           descricao: taskDescricao || null,
           prioridade: taskPrioridade,
           assigned_agent_id: taskAgentId || null,
+          force_opus: taskForceOpus,
         })
       } else {
         await createTask({
@@ -138,6 +143,7 @@ export default function ProjectPage({ params }: PageProps) {
           descricao: taskDescricao,
           prioridade: taskPrioridade,
           assigned_agent_id: taskAgentId || undefined,
+          force_opus: taskForceOpus,
         })
       }
 
@@ -400,6 +406,22 @@ export default function ProjectPage({ params }: PageProps) {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+              <div className="space-y-0.5 flex-1">
+                <Label htmlFor="force-opus" className="text-base font-medium">
+                  🟣 Forçar Modelo Opus
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Use o modelo mais potente (⚠️ ~3-5x mais caro)
+                </p>
+              </div>
+              <Switch
+                id="force-opus"
+                checked={taskForceOpus}
+                onCheckedChange={setTaskForceOpus}
+              />
             </div>
           </div>
 
