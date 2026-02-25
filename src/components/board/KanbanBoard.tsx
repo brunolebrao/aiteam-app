@@ -65,6 +65,7 @@ interface KanbanBoardProps {
   onNewTask: () => void
   onOpenChat: (task: TaskWithAgent) => void
   onCreateIssue?: (task: TaskWithAgent) => Promise<void>
+  onViewDetails: (task: TaskWithAgent) => void
 }
 
 function TaskCard({ 
@@ -77,6 +78,7 @@ function TaskCard({
   onEdit,
   onChat,
   onCreateIssue,
+  onViewDetails,
 }: { 
   task: TaskWithAgent
   index: number
@@ -87,6 +89,7 @@ function TaskCard({
   onEdit: () => void
   onChat: () => void
   onCreateIssue?: () => void
+  onViewDetails: () => void
 }) {
   return (
     <Draggable draggableId={task.id} index={index}>
@@ -100,7 +103,7 @@ function TaskCard({
           <Card className={`hover:shadow-md transition-shadow ${snapshot.isDragging ? 'shadow-lg' : ''}`}>
             <CardContent className="p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={onViewDetails}>
                   <p className="font-medium text-sm truncate">
                     {task.numero && <span className="text-muted-foreground mr-1">#{task.numero}</span>}
                     {task.titulo}
@@ -118,6 +121,10 @@ function TaskCard({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={onViewDetails}>
+                      <IoOpenOutline className="h-4 w-4 mr-2" />
+                      Ver Detalhes
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={onChat}>
                       <IoChatbubbleOutline className="h-4 w-4 mr-2" />
                       Chat
@@ -238,6 +245,7 @@ function Column({
   onChat,
   onNewTask,
   onCreateIssue,
+  onViewDetails,
 }: { 
   column: typeof COLUMNS[0]
   tasks: TaskWithAgent[]
@@ -249,6 +257,7 @@ function Column({
   onChat: (task: TaskWithAgent) => void
   onNewTask: () => void
   onCreateIssue?: (task: TaskWithAgent) => void
+  onViewDetails: (task: TaskWithAgent) => void
 }) {
   const Icon = column.icon
 
@@ -290,6 +299,7 @@ function Column({
                 onEdit={() => onEdit(task)}
                 onChat={() => onChat(task)}
                 onCreateIssue={onCreateIssue ? () => onCreateIssue(task) : undefined}
+                onViewDetails={() => onViewDetails(task)}
               />
             ))}
             {provided.placeholder}
@@ -317,6 +327,7 @@ export function KanbanBoard({
   onNewTask,
   onOpenChat,
   onCreateIssue,
+  onViewDetails,
 }: KanbanBoardProps) {
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result
@@ -352,6 +363,7 @@ export function KanbanBoard({
             onChat={onOpenChat}
             onNewTask={onNewTask}
             onCreateIssue={onCreateIssue}
+            onViewDetails={onViewDetails}
           />
         ))}
       </div>

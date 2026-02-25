@@ -30,6 +30,7 @@ import { supabase, Project, Agent } from '@/lib/supabase'
 import { useTasks, TaskWithAgent } from '@/hooks/useTasks'
 import { KanbanBoard } from '@/components/board/KanbanBoard'
 import { TaskChat } from '@/components/chat/TaskChat'
+import { TaskDetailModal } from '@/components/board/TaskDetailModal'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -52,6 +53,8 @@ export default function ProjectPage({ params }: PageProps) {
   const [editingTask, setEditingTask] = useState<TaskWithAgent | null>(null)
   const [chatTask, setChatTask] = useState<TaskWithAgent | null>(null)
   const [chatOpen, setChatOpen] = useState(false)
+  const [detailTask, setDetailTask] = useState<TaskWithAgent | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
 
   // Form state
   const [taskTitulo, setTaskTitulo] = useState('')
@@ -164,6 +167,11 @@ export default function ProjectPage({ params }: PageProps) {
   const handleOpenChat = (task: TaskWithAgent) => {
     setChatTask(task)
     setChatOpen(true)
+  }
+
+  const handleViewDetails = (task: TaskWithAgent) => {
+    setDetailTask(task)
+    setDetailOpen(true)
   }
 
   const handleCreateIssue = async (task: TaskWithAgent) => {
@@ -333,6 +341,7 @@ export default function ProjectPage({ params }: PageProps) {
             onNewTask={handleNewTask}
             onOpenChat={handleOpenChat}
             onCreateIssue={handleCreateIssue}
+            onViewDetails={handleViewDetails}
           />
         )}
       </main>
@@ -446,6 +455,13 @@ export default function ProjectPage({ params }: PageProps) {
           onSendToAgent={handleSendToAgent}
         />
       )}
+
+      {/* Detail Modal */}
+      <TaskDetailModal
+        task={detailTask}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </div>
   )
 }
