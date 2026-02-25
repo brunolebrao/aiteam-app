@@ -34,6 +34,7 @@ export type Agent = {
 export type Task = {
   id: string
   project_id: string
+  numero: number | null
   titulo: string
   descricao: string | null
   status: 'backlog' | 'todo' | 'doing' | 'review' | 'done' | 'blocked'

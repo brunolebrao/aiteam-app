@@ -99,7 +99,10 @@ function TaskCard({
             <CardContent className="p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{task.titulo}</p>
+                  <p className="font-medium text-sm truncate">
+                    {task.numero && <span className="text-muted-foreground mr-1">#{task.numero}</span>}
+                    {task.titulo}
+                  </p>
                   {task.descricao && (
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
                       {task.descricao}
