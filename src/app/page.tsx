@@ -20,7 +20,7 @@ import { IoAdd, IoFolderOpenOutline, IoSettingsOutline, IoPeopleOutline, IoAlert
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/components/ui/toast'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProjects, ProjectWithCounts } from '@/hooks/useProjects'
 
 const statusColors: Record<string, string> = {
@@ -44,25 +44,37 @@ function ProjectCard({ project, onToggleAutoIdeas }: {
   onToggleAutoIdeas: (projectId: string, enabled: boolean) => Promise<void>
 }) {
   const [isTogglingAutoIdeas, setIsTogglingAutoIdeas] = useState(false)
+  const [localAutoIdeas, setLocalAutoIdeas] = useState(project.auto_ideas)
   const counts = project.tasks_count
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
   const done = counts.done
   const progress = total > 0 ? Math.round((done / total) * 100) : 0
 
-  const handleAutoIdeasToggle = async (enabled: boolean) => {
+  // Sincroniza estado local quando project.auto_ideas mudar
+  useEffect(() => {
+    setLocalAutoIdeas(project.auto_ideas)
+  }, [project.auto_ideas])
+
+  const handleAutoIdeasToggle = async (e: React.MouseEvent, enabled: boolean) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
     setIsTogglingAutoIdeas(true)
+    setLocalAutoIdeas(enabled) // Atualiza UI imediatamente
+    
     try {
       await onToggleAutoIdeas(project.id, enabled)
     } catch (err) {
       console.error('Erro ao alternar auto-ideas:', err)
+      setLocalAutoIdeas(!enabled) // Reverte em caso de erro
     } finally {
       setIsTogglingAutoIdeas(false)
     }
   }
 
   return (
-    <Link href={`/projects/${project.slug}`}>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer group">
+    <Card className="hover:shadow-lg transition-shadow group">
+      <Link href={`/projects/${project.slug}`} className="cursor-pointer">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -85,8 +97,11 @@ function ProjectCard({ project, onToggleAutoIdeas }: {
             {project.descricao || 'Sem descrição'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+      </Link>
+      
+      <CardContent>
+        <div className="space-y-3">
+          <Link href={`/projects/${project.slug}`} className="cursor-pointer">
             {project.github_repo && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <IoFolderOpenOutline className="h-4 w-4" />
@@ -103,36 +118,38 @@ function ProjectCard({ project, onToggleAutoIdeas }: {
               <span className="font-medium">{progress}%</span>
             </div>
             
-            <div className="w-full bg-muted rounded-full h-2">
+            <div className="w-full bg-muted rounded-full h-2 mb-3">
               <div 
                 className="bg-primary h-2 rounded-full transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
+          </Link>
 
-            {/* Toggle Ideias Automáticas */}
-            <div 
-              className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
-              onClick={(e) => e.preventDefault()}
-            >
-              <div className="flex items-center gap-2">
-                <IoTimeOutline className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Ideias Automáticas</p>
-                  <p className="text-xs text-muted-foreground">07:00 e 22:00</p>
-                </div>
+          {/* Toggle Ideias Automáticas - FORA do Link */}
+          <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors">
+            <div className="flex items-center gap-2">
+              <IoTimeOutline className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Ideias Automáticas</p>
+                <p className="text-xs text-muted-foreground">07:00 e 22:00</p>
               </div>
-              <Switch
-                checked={project.auto_ideas}
-                onCheckedChange={handleAutoIdeasToggle}
-                disabled={isTogglingAutoIdeas}
-                onClick={(e) => e.stopPropagation()}
-              />
             </div>
+            <Switch
+              checked={localAutoIdeas}
+              onCheckedChange={(checked) => {
+                const syntheticEvent = {
+                  preventDefault: () => {},
+                  stopPropagation: () => {}
+                } as React.MouseEvent
+                handleAutoIdeasToggle(syntheticEvent, checked)
+              }}
+              disabled={isTogglingAutoIdeas}
+            />
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
