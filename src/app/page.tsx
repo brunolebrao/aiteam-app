@@ -16,7 +16,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { IoAdd, IoFolderOpenOutline, IoSettingsOutline, IoPeopleOutline, IoAlertCircleOutline } from 'react-icons/io5'
+import { IoAdd, IoFolderOpenOutline, IoSettingsOutline, IoPeopleOutline, IoAlertCircleOutline, IoTimeOutline } from 'react-icons/io5'
+import { Switch } from '@/components/ui/switch'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useProjects, ProjectWithCounts } from '@/hooks/useProjects'
@@ -37,11 +38,29 @@ const statusLabels: Record<string, string> = {
   archived: '📦 Arquivado',
 }
 
-function ProjectCard({ project }: { project: ProjectWithCounts }) {
+function ProjectCard({ project, onToggleAutoIdeas }: { 
+  project: ProjectWithCounts
+  onToggleAutoIdeas: (projectId: string, enabled: boolean) => Promise<void>
+}) {
+  const [isTogglingAutoIdeas, setIsTogglingAutoIdeas] = useState(false)
   const counts = project.tasks_count
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
   const done = counts.done
   const progress = total > 0 ? Math.round((done / total) * 100) : 0
+
+  const handleAutoIdeasToggle = async (e: React.MouseEvent, enabled: boolean) => {
+    e.preventDefault() // Evita navegação
+    e.stopPropagation()
+    
+    setIsTogglingAutoIdeas(true)
+    try {
+      await onToggleAutoIdeas(project.id, enabled)
+    } catch (err) {
+      console.error('Erro ao alternar auto-ideas:', err)
+    } finally {
+      setIsTogglingAutoIdeas(false)
+    }
+  }
 
   return (
     <Link href={`/projects/${project.slug}`}>
@@ -73,7 +92,7 @@ function ProjectCard({ project }: { project: ProjectWithCounts }) {
             {project.github_repo && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <IoFolderOpenOutline className="h-4 w-4" />
-                <span>{project.github_repo}</span>
+                <span className="truncate">{project.github_repo}</span>
               </div>
             )}
             
@@ -90,6 +109,26 @@ function ProjectCard({ project }: { project: ProjectWithCounts }) {
               <div 
                 className="bg-primary h-2 rounded-full transition-all"
                 style={{ width: `${progress}%` }}
+              />
+            </div>
+
+            {/* Toggle Ideias Automáticas */}
+            <div 
+              className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
+              onClick={(e) => e.preventDefault()}
+            >
+              <div className="flex items-center gap-2">
+                <IoTimeOutline className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Ideias Automáticas</p>
+                  <p className="text-xs text-muted-foreground">07:00 e 22:00</p>
+                </div>
+              </div>
+              <Switch
+                checked={project.auto_ideas}
+                onCheckedChange={(checked) => handleAutoIdeasToggle(event as any, checked)}
+                disabled={isTogglingAutoIdeas}
+                onClick={(e) => e.stopPropagation()}
               />
             </div>
           </div>
@@ -181,7 +220,31 @@ function NewProjectDialog({ onCreate }: { onCreate: (data: { nome: string; descr
 }
 
 export default function HomePage() {
-  const { projects, loading, error, createProject } = useProjects()
+  const { projects, loading, error, createProject, refresh } = useProjects()
+
+  const handleToggleAutoIdeas = async (projectId: string, enabled: boolean) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/auto-ideas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao atualizar configuração')
+      }
+
+      const result = await response.json()
+      alert(result.message)
+      
+      // Refresh projects
+      await refresh()
+    } catch (err) {
+      console.error('Erro ao alternar auto-ideas:', err)
+      alert(err instanceof Error ? err.message : 'Erro ao atualizar configuração')
+    }
+  }
 
   return (
     <div className="min-h-screen">
@@ -262,7 +325,11 @@ export default function HomePage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {projects.map(project => (
-              <ProjectCard key={project.id} project={project} />
+              <ProjectCard 
+                key={project.id} 
+                project={project} 
+                onToggleAutoIdeas={handleToggleAutoIdeas}
+              />
             ))}
           </div>
         )}

@@ -14,6 +14,7 @@ export type Project = {
   github_repo: string | null
   status: 'planning' | 'active' | 'paused' | 'done' | 'archived'
   cor: string
+  auto_ideas: boolean
   created_at: string
   updated_at: string
 }
