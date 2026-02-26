@@ -62,7 +62,7 @@ export default function ProjectPage({ params }: PageProps) {
   // Form state
   const [taskTitulo, setTaskTitulo] = useState('')
   const [taskDescricao, setTaskDescricao] = useState('')
-  const [taskPrioridade, setTaskPrioridade] = useState('medium')
+  const [taskPrioridade, setTaskPrioridade] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium')
   const [taskAgentId, setTaskAgentId] = useState<string>('')
   const [taskForceOpus, setTaskForceOpus] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -173,7 +173,11 @@ export default function ProjectPage({ params }: PageProps) {
     setChatOpen(true)
   }
 
-  const handleMoveTaskWithAutoChat = async (taskId: string, newStatus: string, newOrder: number) => {
+  const handleMoveTaskWithAutoChat = async (
+    taskId: string, 
+    newStatus: 'ideias' | 'backlog' | 'anna' | 'frank' | 'rask' | 'bruce' | 'ali' | 'done', 
+    newOrder: number
+  ) => {
     // Colunas de agentes
     const agentColumns = ['anna', 'frank', 'rask', 'bruce', 'ali']
     
@@ -297,10 +301,8 @@ export default function ProjectPage({ params }: PageProps) {
       const pr = await response.json()
       alert(`✅ PR #${pr.number} criado com sucesso!\n\n${pr.html_url}`)
       
-      // Salvar referência do PR na task
+      // Salvar referência do PR na task (apenas no metadata)
       await updateTask(prTask.id, {
-        pr_number: pr.number,
-        pr_url: pr.html_url,
         metadata: { ...prTask.metadata, github_pr: pr.number, github_pr_url: pr.html_url }
       })
 
@@ -512,7 +514,7 @@ export default function ProjectPage({ params }: PageProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Prioridade</Label>
-                <Select value={taskPrioridade} onValueChange={setTaskPrioridade}>
+                <Select value={taskPrioridade} onValueChange={(v) => setTaskPrioridade(v as 'low' | 'medium' | 'high' | 'urgent')}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

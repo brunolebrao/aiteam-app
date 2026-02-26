@@ -140,7 +140,7 @@ export function useTasks(projectId: string) {
     }
   }
 
-  const moveTask = async (taskId: string, newStatus: string, newOrder: number) => {
+  const moveTask = async (taskId: string, newStatus: Task['status'], newOrder: number) => {
     try {
       // Atualiza localmente primeiro (otimistic update)
       const updatedTasks = tasks.map(t => 

@@ -51,7 +51,7 @@ function MessageBubble({ comment, isUser }: { comment: CommentWithAgent; isUser:
   const time = format(new Date(comment.created_at), 'HH:mm', { locale: ptBR })
   
   // Extrai modelo do metadata se disponível
-  const modelInfo = !isUser && comment.metadata?.model 
+  const modelInfo = !isUser && comment.metadata?.model && typeof comment.metadata.model === 'string'
     ? getModelBadge(comment.metadata.model)
     : null
 

@@ -58,7 +58,11 @@ interface KanbanBoardProps {
   tasksByStatus: TasksByStatus
   agents: Agent[]
   githubRepo?: string | null
-  onMoveTask: (taskId: string, newStatus: string, newOrder: number) => Promise<void>
+  onMoveTask: (
+    taskId: string, 
+    newStatus: 'ideias' | 'backlog' | 'anna' | 'frank' | 'rask' | 'bruce' | 'ali' | 'done', 
+    newOrder: number
+  ) => Promise<void>
   onAssignAgent: (taskId: string, agentId: string | null) => Promise<void>
   onDeleteTask: (taskId: string) => Promise<void>
   onEditTask: (task: TaskWithAgent) => void
@@ -341,7 +345,7 @@ export function KanbanBoard({
       destination.index === source.index
     ) return
 
-    const newStatus = destination.droppableId
+    const newStatus = destination.droppableId as 'ideias' | 'backlog' | 'anna' | 'frank' | 'rask' | 'bruce' | 'ali' | 'done'
     const newOrder = destination.index
 
     await onMoveTask(draggableId, newStatus, newOrder)
