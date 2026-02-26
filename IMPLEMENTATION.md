@@ -137,21 +137,48 @@ Cada card mostra:
 
 ## ⏰ Automação (Crons)
 
-### Ideias Matinais (07:00)
-```bash
-# Cron 07:00 - Cria 2-3 ideias pra cada projeto ativo
-# Configurar com: ./setup-crons.sh
+### Toggle Visual
+
+Cada projeto tem um **toggle de Ideias Automáticas** no card da home:
+
 ```
+┌─────────────────────────────┐
+│ 🤖 AITeam                   │
+│ Grupo de Agentes...         │
+│                             │
+│ 🕐 Ideias Automáticas       │
+│    [ ON ] 07:00 e 22:00    │
+└─────────────────────────────┘
+```
+
+**Como funciona:**
+- **Toggle ON:** Cria 2 crons (07:00 e 22:00) para aquele projeto
+- **Toggle OFF:** Remove os crons daquele projeto
+- **Configuração por projeto:** AITeam pode ter ON, LerCom OFF
+- **Persistido no banco:** campo `auto_ideas` em `dev_projects`
+
+### Ideias Matinais (07:00)
+- Cron automático quando toggle ativo
+- Cria 2-3 ideias de tasks
+- Analisa contexto do projeto
+- Insere direto na coluna "Ideias"
 
 ### Ideias Noturnas (22:00)
+- Cron automático quando toggle ativo
+- Revisa progresso do dia
+- Cria 2-3 ideias baseadas no que falta
+- Prioriza tarefas pendentes
+
+### API Endpoint
 ```bash
-# Cron 22:00 - Revisa progresso do dia e cria 2-3 ideias
-# Configurar com: ./setup-crons.sh
+# Ativar/desativar via API
+POST /api/projects/:id/auto-ideas
+{ "enabled": true }
 ```
 
-### Script de Geração
+### Script Manual (Legado)
 ```bash
-# Gerar ideias manualmente
+# Ainda funciona para gerar ideias manualmente
 bun run scripts/generate-ideas.ts
 ```
 
@@ -167,6 +194,7 @@ bun run scripts/generate-ideas.ts
 - github_repo (para criar PRs)
 - status: active, paused, done, archived
 - cor (hex)
+- auto_ideas: BOOLEAN (ativa/desativa crons de ideias)
 ```
 
 #### `dev_tasks`
