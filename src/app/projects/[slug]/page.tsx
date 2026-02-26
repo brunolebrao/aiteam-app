@@ -55,6 +55,9 @@ export default function ProjectPage({ params }: PageProps) {
   const [chatOpen, setChatOpen] = useState(false)
   const [detailTask, setDetailTask] = useState<TaskWithAgent | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [prDialogOpen, setPrDialogOpen] = useState(false)
+  const [prTask, setPrTask] = useState<TaskWithAgent | null>(null)
+  const [creatingPr, setCreatingPr] = useState(false)
 
   // Form state
   const [taskTitulo, setTaskTitulo] = useState('')
@@ -207,6 +210,18 @@ export default function ProjectPage({ params }: PageProps) {
         }, 300)
       }
     }
+    
+    // Se moveu pra Done, oferece criar PR
+    if (newStatus === 'done' && project?.github_repo) {
+      const task = tasksByStatus.done.find(t => t.id === taskId)
+      if (task) {
+        // Pequeno delay pra garantir que task foi atualizada
+        setTimeout(() => {
+          setPrTask(task)
+          setPrDialogOpen(true)
+        }, 500)
+      }
+    }
   }
 
   const handleViewDetails = (task: TaskWithAgent) => {
@@ -251,6 +266,50 @@ export default function ProjectPage({ params }: PageProps) {
     } catch (err) {
       console.error('Erro ao criar issue:', err)
       alert(err instanceof Error ? err.message : 'Erro ao criar issue')
+    }
+  }
+
+  const handleCreatePr = async () => {
+    if (!prTask || !project?.github_repo) return
+
+    try {
+      setCreatingPr(true)
+
+      const response = await fetch('/api/github/pull-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo: project.github_repo,
+          task: {
+            numero: prTask.numero,
+            titulo: prTask.titulo,
+            descricao: prTask.descricao,
+          },
+          baseBranch: 'dev', // Sempre cria PR pra dev
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro ao criar PR')
+      }
+
+      const pr = await response.json()
+      alert(`✅ PR #${pr.number} criado com sucesso!\n\n${pr.html_url}`)
+      
+      // Salvar referência do PR na task
+      await updateTask(prTask.id, {
+        pr_number: pr.number,
+        pr_url: pr.html_url,
+        metadata: { ...prTask.metadata, github_pr: pr.number, github_pr_url: pr.html_url }
+      })
+
+      setPrDialogOpen(false)
+    } catch (err) {
+      console.error('Erro ao criar PR:', err)
+      alert(err instanceof Error ? err.message : 'Erro ao criar PR')
+    } finally {
+      setCreatingPr(false)
     }
   }
 
@@ -502,6 +561,58 @@ export default function ProjectPage({ params }: PageProps) {
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />
+
+      {/* PR Dialog */}
+      <Dialog open={prDialogOpen} onOpenChange={setPrDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>🎉 Task Concluída!</DialogTitle>
+            <DialogDescription>
+              A task foi movida para Done. Deseja criar um Pull Request?
+            </DialogDescription>
+          </DialogHeader>
+
+          {prTask && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-lg border bg-muted/30">
+                <p className="font-medium">{prTask.titulo}</p>
+                {prTask.numero && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Task #{prTask.numero}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <p className="flex items-center gap-2">
+                  <IoLogoGithub className="h-4 w-4" />
+                  <span className="text-muted-foreground">Repositório:</span>
+                  <span className="font-mono text-xs">{project?.github_repo}</span>
+                </p>
+                <p className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Branch base:</span>
+                  <Badge variant="outline">dev</Badge>
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  💡 O PR será criado automaticamente com as informações da task.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrDialogOpen(false)}>
+              Agora Não
+            </Button>
+            <Button onClick={handleCreatePr} disabled={creatingPr}>
+              {creatingPr ? 'Criando...' : '✅ Criar PR'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
