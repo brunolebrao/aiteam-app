@@ -65,6 +65,7 @@ export default function ProjectPage({ params }: PageProps) {
   const [saving, setSaving] = useState(false)
 
   const { 
+    tasks,
     tasksByStatus, 
     loading: tasksLoading, 
     createTask, 
@@ -167,6 +168,45 @@ export default function ProjectPage({ params }: PageProps) {
   const handleOpenChat = (task: TaskWithAgent) => {
     setChatTask(task)
     setChatOpen(true)
+  }
+
+  const handleMoveTaskWithAutoChat = async (taskId: string, newStatus: string, newOrder: number) => {
+    // Colunas de agentes
+    const agentColumns = ['anna', 'frank', 'rask', 'bruce', 'ali']
+    
+    // Move a task primeiro
+    await moveTask(taskId, newStatus, newOrder)
+    
+    // Se moveu pra coluna de agente, atribui agente e abre chat automaticamente
+    if (agentColumns.includes(newStatus)) {
+      const task = tasks.find(t => t.id === taskId)
+      if (!task) return
+      
+      // Mapear coluna → agente
+      const agentMap: Record<string, string> = {
+        anna: agents.find(a => a.slug === 'anna')?.id || '',
+        frank: agents.find(a => a.slug === 'frank')?.id || '',
+        rask: agents.find(a => a.slug === 'rask')?.id || '',
+        bruce: agents.find(a => a.slug === 'bruce')?.id || '',
+        ali: agents.find(a => a.slug === 'ali')?.id || '',
+      }
+      
+      const targetAgentId = agentMap[newStatus]
+      
+      // Se não tem agente atribuído ou é diferente, atribui
+      if (targetAgentId && task.assigned_agent_id !== targetAgentId) {
+        await assignAgent(taskId, targetAgentId)
+      }
+      
+      // Busca task atualizada com agente
+      const updatedTask = tasksByStatus[newStatus as keyof typeof tasksByStatus].find(t => t.id === taskId)
+      if (updatedTask) {
+        // Pequeno delay pra garantir que o agente foi atribuído
+        setTimeout(() => {
+          handleOpenChat(updatedTask)
+        }, 300)
+      }
+    }
   }
 
   const handleViewDetails = (task: TaskWithAgent) => {
@@ -334,7 +374,7 @@ export default function ProjectPage({ params }: PageProps) {
             tasksByStatus={tasksByStatus}
             agents={agents}
             githubRepo={project.github_repo}
-            onMoveTask={moveTask}
+            onMoveTask={handleMoveTaskWithAutoChat}
             onAssignAgent={assignAgent}
             onDeleteTask={handleDeleteTask}
             onEditTask={handleEditTask}
