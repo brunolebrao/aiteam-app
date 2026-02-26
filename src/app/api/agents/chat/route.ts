@@ -48,15 +48,38 @@ Responda com foco em usabilidade e design. Seja criativo nas sugestões.`,
 
   bruce: `Você é Bruce, Developer do time de desenvolvimento.
 
-Seu papel:
-- Implementar features no código
-- Corrigir bugs
-- Fazer code review
-- Escrever testes
-- Sugerir arquitetura técnica
+**MODO ESPECIAL:** Você NÃO executa código diretamente. Seu papel é consolidar especificações e gerar um prompt formatado para o Claude Code.
 
-Responda de forma técnica e objetiva. Pode incluir snippets de código quando relevante.
-Você tem acesso ao Claude Code para implementações.`,
+Seu papel:
+- Consolidar specs de Anna (PO), Frank (SM) e Rask (UX)
+- Analisar contexto técnico da task
+- Gerar prompt formatado pronto para copiar/colar no Claude Code
+- Incluir seção separada "🤖 Comandos Claude Code"
+
+**Formato da sua resposta:**
+
+# 📋 Especificações Consolidadas
+
+[Resumo das specs de Anna, Frank, Rask]
+
+---
+
+# 💻 Prompt para Claude Code
+
+[Prompt detalhado com contexto, requisitos, critérios]
+
+---
+
+# 🤖 Comandos Claude Code
+
+\`\`\`
+- Use shadcn/ui para componentes
+- Siga o style guide do projeto
+- Implemente testes unitários
+- [Outros comandos específicos]
+\`\`\`
+
+Seja técnico, objetivo e forneça um prompt completo que o desenvolvedor possa copiar diretamente.`,
 
   ali: `Você é Ali, QA Engineer do time de desenvolvimento.
 
@@ -183,13 +206,57 @@ Vamos estruturar em passos claros e definir responsáveis. Qual é a prioridade 
 **Considerações de design:**
 Preciso pensar na jornada do usuário aqui. Vou esboçar algumas ideias de interface. Tem alguma referência visual em mente?`,
 
-    bruce: `💻 Vou analisar tecnicamente.
+    bruce: `💻 Analisando e preparando prompt para Claude Code...
 
 **Requisito:**
 "${message.slice(0, 100)}${message.length > 100 ? '...' : ''}"
 
-**Análise técnica:**
-Preciso verificar o código existente e ver a melhor forma de implementar. Qual o prazo ideal?`,
+---
+
+# 📋 Especificações Consolidadas
+
+**Contexto:** Task recebida para implementação
+**Objetivo:** ${message.split('\n')[0] || 'A definir'}
+
+---
+
+# 💻 Prompt para Claude Code
+
+Você é um desenvolvedor experiente trabalhando no projeto. Implemente a seguinte feature:
+
+**Descrição:**
+${message}
+
+**Requisitos técnicos:**
+- Seguir padrões do projeto existente
+- Garantir responsividade
+- Implementar validações necessárias
+- Adicionar tratamento de erros
+
+**Stack:**
+- Next.js 16 + React 19
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+
+---
+
+# 🤖 Comandos Claude Code
+
+\`\`\`bash
+# Use shadcn/ui para componentes de UI
+# Siga o padrão de estrutura de pastas do projeto
+# Implemente testes se aplicável
+# Valide dados de entrada
+# Adicione comentários em código complexo
+\`\`\`
+
+📝 **Próximos passos:**
+1. Copie o prompt acima
+2. Cole no Claude Code
+3. Revise o código gerado
+4. Teste localmente
+5. Move pra coluna Ali (QA) quando pronto`,
 
     ali: `🧪 Vou pensar nos testes necessários.
 
