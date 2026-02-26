@@ -313,7 +313,7 @@ export default function ProjectPage({ params }: PageProps) {
     }
   }
 
-  const handleSendToAgent = async (message: string, agent: Agent): Promise<string> => {
+  const handleSendToAgent = async (message: string, agent: Agent): Promise<{ response: string; model?: string }> => {
     try {
       const response = await fetch('/api/agents/chat', {
         method: 'POST',
@@ -321,6 +321,7 @@ export default function ProjectPage({ params }: PageProps) {
         body: JSON.stringify({
           message,
           agentSlug: agent.slug,
+          taskId: chatTask?.id,
           taskContext: chatTask ? {
             titulo: chatTask.titulo,
             descricao: chatTask.descricao,
@@ -335,10 +336,36 @@ export default function ProjectPage({ params }: PageProps) {
       }
 
       const data = await response.json()
-      return data.response
+      return {
+        response: data.response,
+        model: data.model,
+      }
     } catch (error) {
       console.error('Erro ao enviar para agente:', error)
-      return `Desculpe, tive um problema ao processar sua mensagem. Tente novamente.`
+      return {
+        response: `Desculpe, tive um problema ao processar sua mensagem. Tente novamente.`,
+      }
+    }
+  }
+
+  const handleApprove = async () => {
+    if (!chatTask) return
+
+    try {
+      // Marca task como aprovada pelo agente atual
+      await updateTask(chatTask.id, {
+        metadata: {
+          ...chatTask.metadata,
+          approved_by: chatTask.status, // status atual = agente atual
+          approved_at: new Date().toISOString(),
+        },
+      })
+
+      // Fecha o chat
+      setChatOpen(false)
+    } catch (error) {
+      console.error('Erro ao aprovar:', error)
+      alert('Erro ao aprovar task')
     }
   }
 
@@ -552,6 +579,7 @@ export default function ProjectPage({ params }: PageProps) {
           open={chatOpen}
           onOpenChange={setChatOpen}
           onSendToAgent={handleSendToAgent}
+          onApprove={handleApprove}
         />
       )}
 

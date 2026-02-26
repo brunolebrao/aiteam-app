@@ -142,7 +142,7 @@ function cleanOpenClawOutput(raw: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, agentSlug, taskContext, taskId, previousComments } = await request.json()
+    const { message, agentSlug, taskContext, taskId } = await request.json()
 
     if (!message || !agentSlug) {
       return NextResponse.json(
@@ -159,8 +159,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Buscar comentários anteriores do banco (se taskId fornecido)
+    let previousComments: any[] = []
+    
+    if (taskId) {
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      )
+      
+      const { data } = await supabase
+        .from('dev_task_comments')
+        .select(`
+          *,
+          agent:dev_agents(*)
+        `)
+        .eq('task_id', taskId)
+        .eq('tipo', 'comment')
+        .not('agent_id', 'is', null)
+        .order('created_at', { ascending: true })
+      
+      previousComments = data || []
+    }
+
     // Contexto de conversas anteriores (outros agentes)
-    const previousContext = previousComments && previousComments.length > 0
+    const previousContext = previousComments.length > 0
       ? `
 ---
 **Histórico de Análises Anteriores:**

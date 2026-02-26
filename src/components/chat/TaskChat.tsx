@@ -25,7 +25,7 @@ interface TaskChatProps {
   agent: Agent | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSendToAgent?: (message: string, agent: Agent) => Promise<string>
+  onSendToAgent?: (message: string, agent: Agent) => Promise<{ response: string; model?: string }>
   onApprove?: () => Promise<void>
 }
 
@@ -139,8 +139,10 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent, onApp
           await addUserMessage(firstMessage)
           
           // Obtém resposta do agente
-          const response = await onSendToAgent(firstMessage, agent)
-          await addAgentMessage(response, agent.id)
+          const result = await onSendToAgent(firstMessage, agent)
+          await addAgentMessage(result.response, agent.id, {
+            model: result.model,
+          })
         } catch (err) {
           console.error('Erro no primeiro turno automático:', err)
         } finally {
@@ -172,8 +174,10 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent, onApp
 
       // Se tem agente atribuído e callback de envio, obter resposta
       if (agent && onSendToAgent) {
-        const response = await onSendToAgent(userMessage, agent)
-        await addAgentMessage(response, agent.id)
+        const result = await onSendToAgent(userMessage, agent)
+        await addAgentMessage(result.response, agent.id, {
+          model: result.model,
+        })
       }
     } catch (err) {
       console.error('Erro ao enviar mensagem:', err)
