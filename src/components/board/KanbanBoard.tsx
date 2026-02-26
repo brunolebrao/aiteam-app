@@ -345,6 +345,22 @@ export function KanbanBoard({
     const newOrder = destination.index
 
     await onMoveTask(draggableId, newStatus, newOrder)
+
+    // Auto-open chat when moving to agent columns
+    const agentColumns = ['anna', 'frank', 'rask', 'bruce', 'ali']
+    if (agentColumns.includes(newStatus)) {
+      // Encontra a task que foi movida
+      const movedTask = Object.values(tasksByStatus)
+        .flat()
+        .find(t => t.id === draggableId)
+      
+      if (movedTask) {
+        // Aguarda um pouco pra task atualizar no banco
+        setTimeout(() => {
+          onOpenChat(movedTask)
+        }, 300)
+      }
+    }
   }
 
   return (

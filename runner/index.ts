@@ -144,10 +144,17 @@ async function updateTaskStatus(taskId: string, status: string, execution_status
   if (execution_status !== undefined) {
     update.execution_status = execution_status
   }
-  await supabase
+  const { error } = await supabase
     .from('dev_tasks')
     .update(update)
     .eq('id', taskId)
+  
+  if (error) {
+    console.error(`❌ Erro ao atualizar status da task ${taskId}:`, error)
+    throw error
+  } else {
+    console.log(`✅ Status atualizado: ${status}${execution_status ? ` (execution: ${execution_status})` : ''}`)
+  }
 }
 
 // Atualiza execution_status

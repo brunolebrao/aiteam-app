@@ -93,6 +93,41 @@ Seu papel:
 Responda com foco em qualidade e detalhes. Liste cenários de teste quando apropriado.`,
 }
 
+// Remove metadata do OpenClaw e retorna só a resposta do agente
+function cleanOpenClawOutput(raw: string): string {
+  const lines = raw.split('\n')
+  const cleanedLines: string[] = []
+  let inAgentResponse = false
+  
+  for (const line of lines) {
+    // Skip linhas de metadata do OpenClaw
+    if (
+      line.includes('Session store:') ||
+      line.includes('Sessions listed:') ||
+      line.includes('Kind') ||
+      line.includes('Flags') ||
+      line.includes('direct agent:') ||
+      line.includes('group agent:') ||
+      line.includes('system id:') ||
+      line.match(/^\d+k\/\d+k/) ||
+      line.trim().length === 0
+    ) {
+      continue
+    }
+    
+    // Detecta início da resposta do agente
+    if (!inAgentResponse && line.trim().length > 0 && !line.includes('Age') && !line.includes('Model')) {
+      inAgentResponse = true
+    }
+    
+    if (inAgentResponse) {
+      cleanedLines.push(line)
+    }
+  }
+  
+  return cleanedLines.join('\n').trim()
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { message, agentSlug, taskContext } = await request.json()
@@ -128,38 +163,53 @@ ${message}
 
 Responda de acordo com seu papel.`
 
-    // Chamar OpenClaw via sessions_spawn
-    // Por enquanto, vamos usar uma abordagem mais simples:
-    // Fazer uma requisição direta para o gateway
-    
-    const response = await fetch(`${OPENCLAW_GATEWAY_URL}/api/sessions/spawn`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
-      },
-      body: JSON.stringify({
-        task: prompt,
-        label: `agent-${agentSlug}-${Date.now()}`,
-        timeoutSeconds: 60,
-      }),
-    })
+    // Chamar OpenClaw via CLI (spawn sub-agente)
+    const { spawn } = await import('child_process')
+    const { promisify } = await import('util')
+    const execPromise = promisify(spawn)
 
-    if (!response.ok) {
-      // Fallback: resposta simulada se OpenClaw não disponível
-      console.warn('OpenClaw não disponível, usando fallback')
+    try {
+      const proc = spawn('openclaw', [
+        'sessions', 'spawn',
+        '--task', prompt,
+        '--label', `agent-${agentSlug}-${Date.now()}`,
+        '--cleanup', 'delete',
+        '--timeout-seconds', '60',
+      ])
+
+      let output = ''
+      let error = ''
+
+      for await (const chunk of proc.stdout) {
+        output += chunk.toString()
+      }
+
+      for await (const chunk of proc.stderr) {
+        error += chunk.toString()
+      }
+
+      const exitCode = await new Promise((resolve) => {
+        proc.on('close', resolve)
+      })
+
+      if (exitCode === 0 && output) {
+        // Limpa metadata do OpenClaw
+        const cleaned = cleanOpenClawOutput(output)
+        return NextResponse.json({
+          response: cleaned,
+          source: 'openclaw',
+        })
+      }
+
+      throw new Error('OpenClaw spawn failed')
+    } catch (spawnError) {
+      // Fallback: resposta simulada
+      console.warn('OpenClaw CLI não disponível, usando fallback:', spawnError)
       return NextResponse.json({
         response: generateFallbackResponse(agentSlug, message),
         source: 'fallback',
       })
     }
-
-    const result = await response.json()
-    
-    return NextResponse.json({
-      response: result.response || result.message || 'Sem resposta',
-      source: 'openclaw',
-    })
 
   } catch (error) {
     console.error('Erro no chat:', error)
