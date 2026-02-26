@@ -13,7 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { IoSendOutline, IoChatbubbleEllipsesOutline, IoPersonOutline } from 'react-icons/io5'
+import { IoSendOutline, IoChatbubbleEllipsesOutline, IoPersonOutline, IoCheckmarkCircle } from 'react-icons/io5'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { useTaskComments, CommentWithAgent } from '@/hooks/useTaskComments'
 import { Task, Agent } from '@/lib/supabase'
@@ -26,10 +26,34 @@ interface TaskChatProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSendToAgent?: (message: string, agent: Agent) => Promise<string>
+  onApprove?: () => Promise<void>
+}
+
+function getModelBadge(model?: string): { emoji: string; label: string; color: string } | null {
+  if (!model) return null
+  
+  const normalized = model.toLowerCase()
+  
+  if (normalized.includes('opus')) {
+    return { emoji: '🟣', label: 'Opus', color: 'bg-purple-100 text-purple-700' }
+  }
+  if (normalized.includes('sonnet')) {
+    return { emoji: '🔵', label: 'Sonnet', color: 'bg-blue-100 text-blue-700' }
+  }
+  if (normalized.includes('haiku')) {
+    return { emoji: '⚪', label: 'Haiku', color: 'bg-slate-100 text-slate-700' }
+  }
+  
+  return null
 }
 
 function MessageBubble({ comment, isUser }: { comment: CommentWithAgent; isUser: boolean }) {
   const time = format(new Date(comment.created_at), 'HH:mm', { locale: ptBR })
+  
+  // Extrai modelo do metadata se disponível
+  const modelInfo = !isUser && comment.metadata?.model 
+    ? getModelBadge(comment.metadata.model)
+    : null
 
   return (
     <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -45,13 +69,18 @@ function MessageBubble({ comment, isUser }: { comment: CommentWithAgent; isUser:
         )}
       </div>
       <div className={`max-w-[80%] ${isUser ? 'items-end' : 'items-start'}`}>
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
           <span className="text-sm font-medium">
             {isUser ? 'Você' : comment.agent?.nome || 'Sistema'}
           </span>
           {comment.agent && (
             <Badge variant="outline" className="text-xs">
               {comment.agent.papel.toUpperCase()}
+            </Badge>
+          )}
+          {modelInfo && (
+            <Badge variant="secondary" className={`text-xs ${modelInfo.color}`}>
+              {modelInfo.emoji} {modelInfo.label}
             </Badge>
           )}
           <span className="text-xs text-muted-foreground">{time}</span>
@@ -70,12 +99,16 @@ function MessageBubble({ comment, isUser }: { comment: CommentWithAgent; isUser:
   )
 }
 
-export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent }: TaskChatProps) {
+export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent, onApprove }: TaskChatProps) {
   const { comments, loading, addUserMessage, addAgentMessage } = useTaskComments(task.id)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
+  const [approving, setApproving] = useState(false)
   const [hasExecutedFirstTurn, setHasExecutedFirstTurn] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  // Verifica se tem mensagens do agente (pode aprovar)
+  const hasAgentMessages = comments.some(c => c.agent_id && c.tipo !== 'system')
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -156,6 +189,21 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent }: Tas
     }
   }
 
+  const handleApprove = async () => {
+    if (!onApprove) return
+    
+    setApproving(true)
+    try {
+      await onApprove()
+      // Fecha o chat após aprovar
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Erro ao aprovar:', err)
+    } finally {
+      setApproving(false)
+    }
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-[500px] sm:max-w-[500px] flex flex-col">
@@ -227,7 +275,28 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent }: Tas
         </div>
 
         {/* Input */}
-        <div className="border-t pt-4">
+        <div className="border-t pt-4 space-y-3">
+          {/* Botão de Aprovar */}
+          {hasAgentMessages && onApprove && (
+            <Button
+              onClick={handleApprove}
+              disabled={approving}
+              className="w-full bg-green-600 hover:bg-green-700"
+              size="lg"
+            >
+              {approving ? (
+                <>
+                  <AiOutlineLoading3Quarters className="h-4 w-4 mr-2 animate-spin" />
+                  Aprovando...
+                </>
+              ) : (
+                <>
+                  ✅ Aprovar e Continuar
+                </>
+              )}
+            </Button>
+          )}
+
           <div className="flex gap-2">
             <Textarea
               placeholder={agent 

@@ -93,6 +93,18 @@ Seu papel:
 Responda com foco em qualidade e detalhes. Liste cenários de teste quando apropriado.`,
 }
 
+// Detecta modelo usado da saída do OpenClaw
+function detectModelFromOutput(raw: string): string {
+  // Procura por linha como "Model: claude-sonnet-4-5" ou similar
+  const modelMatch = raw.match(/Model[:\s]+([a-z0-9-]+)/i)
+  if (modelMatch) {
+    return modelMatch[1]
+  }
+  
+  // Default: Sonnet (modelo mais usado)
+  return 'claude-sonnet-4-5'
+}
+
 // Remove metadata do OpenClaw e retorna só a resposta do agente
 function cleanOpenClawOutput(raw: string): string {
   const lines = raw.split('\n')
@@ -130,7 +142,7 @@ function cleanOpenClawOutput(raw: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, agentSlug, taskContext } = await request.json()
+    const { message, agentSlug, taskContext, taskId, previousComments } = await request.json()
 
     if (!message || !agentSlug) {
       return NextResponse.json(
@@ -147,7 +159,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Montar prompt com contexto
+    // Contexto de conversas anteriores (outros agentes)
+    const previousContext = previousComments && previousComments.length > 0
+      ? `
+---
+**Histórico de Análises Anteriores:**
+
+${previousComments.map((c: any) => `**${c.agent?.nome || 'Agente'} (${c.agent?.papel || 'unknown'}):**
+${c.conteudo}
+`).join('\n---\n')}
+---
+`
+      : ''
+
+    // Montar prompt com contexto completo
     const prompt = `${persona}
 
 ${taskContext ? `---
@@ -157,6 +182,8 @@ Descrição: ${taskContext.descricao || 'Sem descrição'}
 Prioridade: ${taskContext.prioridade}
 Status: ${taskContext.status}
 ---` : ''}
+
+${previousContext}
 
 **Mensagem do usuário:**
 ${message}
@@ -193,10 +220,15 @@ Responda de acordo com seu papel.`
       })
 
       if (exitCode === 0 && output) {
+        // Detecta modelo usado
+        const model = detectModelFromOutput(output)
+        
         // Limpa metadata do OpenClaw
         const cleaned = cleanOpenClawOutput(output)
+        
         return NextResponse.json({
           response: cleaned,
+          model: `anthropic/${model}`,
           source: 'openclaw',
         })
       }
@@ -207,6 +239,7 @@ Responda de acordo com seu papel.`
       console.warn('OpenClaw CLI não disponível, usando fallback:', spawnError)
       return NextResponse.json({
         response: generateFallbackResponse(agentSlug, message),
+        model: 'anthropic/claude-sonnet-4-5', // Fallback usa Sonnet
         source: 'fallback',
       })
     }
@@ -219,6 +252,7 @@ Responda de acordo com seu papel.`
     
     return NextResponse.json({
       response: generateFallbackResponse(agentSlug || 'anna', message || ''),
+      model: 'anthropic/claude-sonnet-4-5',
       source: 'fallback',
       error: error instanceof Error ? error.message : 'Erro desconhecido',
     })

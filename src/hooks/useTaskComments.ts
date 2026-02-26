@@ -33,7 +33,12 @@ export function useTaskComments(taskId: string) {
     }
   }, [taskId])
 
-  const addComment = async (content: string, agentId?: string, tipo: string = 'comment') => {
+  const addComment = async (
+    content: string, 
+    agentId?: string, 
+    tipo: string = 'comment',
+    metadata?: Record<string, any>
+  ) => {
     try {
       const { data, error } = await supabase
         .from('dev_task_comments')
@@ -42,6 +47,7 @@ export function useTaskComments(taskId: string) {
           agent_id: agentId || null,
           tipo,
           conteudo: content,
+          metadata: metadata || null,
         })
         .select(`*, agent:dev_agents(*)`)
         .single()
@@ -60,8 +66,8 @@ export function useTaskComments(taskId: string) {
     return addComment(content, undefined, 'comment')
   }
 
-  const addAgentMessage = async (content: string, agentId: string) => {
-    return addComment(content, agentId, 'comment')
+  const addAgentMessage = async (content: string, agentId: string, metadata?: Record<string, any>) => {
+    return addComment(content, agentId, 'comment', metadata)
   }
 
   useEffect(() => {
