@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { IoAdd, IoFolderOpenOutline, IoSettingsOutline, IoPeopleOutline, IoAlertCircleOutline, IoTimeOutline } from 'react-icons/io5'
 import { Switch } from '@/components/ui/switch'
+import { useToast } from '@/components/ui/toast'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useProjects, ProjectWithCounts } from '@/hooks/useProjects'
@@ -221,6 +222,7 @@ function NewProjectDialog({ onCreate }: { onCreate: (data: { nome: string; descr
 
 export default function HomePage() {
   const { projects, loading, error, createProject, refresh } = useProjects()
+  const { showToast } = useToast()
 
   const handleToggleAutoIdeas = async (projectId: string, enabled: boolean) => {
     try {
@@ -236,13 +238,16 @@ export default function HomePage() {
       }
 
       const result = await response.json()
-      alert(result.message)
+      showToast(result.message, 'success')
       
       // Refresh projects
       await refresh()
     } catch (err) {
       console.error('Erro ao alternar auto-ideas:', err)
-      alert(err instanceof Error ? err.message : 'Erro ao atualizar configuração')
+      showToast(
+        err instanceof Error ? err.message : 'Erro ao atualizar configuração',
+        'error'
+      )
     }
   }
 
