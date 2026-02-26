@@ -2,91 +2,126 @@
 
 ## 📋 Resumo
 
-Sistema de gerenciamento de tasks com agentes AI que executam automaticamente quando tasks são arrastadas para suas colunas no board Kanban.
+Sistema de gerenciamento de tasks com agentes AI que funcionam de forma **interativa** — você conversa com cada agente ao arrastar a task para sua coluna no board Kanban.
 
 ## 🌳 Git Flow
 
 - **`main`** → Landing page (produção)
 - **`dev`** → Dashboard completo (desenvolvimento ativo)
-- **PRs criadas pelo Runner** → Sempre para `dev`
+- **PRs** → Sempre para `dev`
 
 ---
 
-## 🎯 Fase 1: Backend (Banco de Dados)
+## 🎯 Fluxo Interativo (Novo - 2026-02-26)
 
-### Migrations Criadas
+### Como Funciona
 
-#### `00002_add_opus_and_pr_fields.sql`
-```sql
-- force_opus: BOOLEAN (forçar modelo Opus)
-- progress_log: JSONB (log incremental do agente)
-- pr_url: TEXT (URL da Pull Request)
-- pr_status: TEXT (pending/approved/merged/closed)
+```
+1. Você arrasta task pra coluna de agente (Anna/Frank/Rask/Bruce/Ali)
+         ↓
+2. Chat abre automaticamente
+         ↓
+3. Agente executa primeiro turno sozinho (analisa task)
+         ↓
+4. Você vê a resposta e pode conversar/iterar (opcional)
+         ↓
+5. Fecha chat → comentário salvo na task
+         ↓
+6. Arrasta pra próxima coluna (ou Done)
+         ↓
+7. [Se Done] Oferece criar PR automaticamente
 ```
 
-#### `00003_agent_columns.sql`
-```sql
-- Novos status: ideias, anna, frank, rask, bruce, ali, done
-- ENUM atualizado no PostgreSQL
-```
+### 🤖 Comportamento por Coluna
 
-### Status Aplicado
-✅ Migrations aplicadas no Supabase DEV (31.97.253.190)
+#### 💡 Ideias
+- Tasks soltas, brainstorm
+- **Automático:** Crons criam 2-3 ideias às 07:00 e 22:00
+
+#### 📋 Backlog
+- Tasks aprovadas, esperando pra começar
+- Você arrasta pra cá quando aprovar a ideia
+
+#### 👩‍💼 Anna (PO) / 🧑‍🏫 Frank (SM) / 🎨 Rask (UX) / 🔍 Ali (QA)
+**Quando você arrasta task:**
+1. Chat abre automaticamente
+2. Agente executa primeiro turno (analisa a task)
+3. Você vê a resposta
+4. Pode conversar/iterar (opcional)
+5. Fecha chat → comentário salvo na task
+6. Arrasta pra próxima coluna (ou Done)
+
+**Onde roda:** OpenClaw sub-session (isolado)  
+**Custo:** 1 agente por vez (econômico)
+
+#### 👨‍💻 Bruce (Dev) - **ESPECIAL**
+**Quando você arrasta task pra Bruce:**
+1. Chat abre automaticamente
+2. Bruce consolida tudo:
+   - Specs de Anna
+   - Organização de Frank
+   - Design de Rask
+   - Contexto da task
+3. **Bruce gera PROMPT FORMATADO** pronto pra copiar:
+   ```
+   📋 Especificações Consolidadas
+   💻 Prompt para Claude Code
+   🤖 Comandos Claude Code
+   ```
+4. **Você copia → cola no Claude Code**
+5. **Você executa manualmente** no Claude Code
+6. Quando der certo → arrasta pra Ali ou Done
+
+**Onde roda:** Você no Claude Code (manual)  
+**Custo:** 1 turno pra montar prompt
+
+#### ✅ Done
+- Task concluída
+- **Automático:** Oferece criar Pull Request
+- Você confirma se quer PR ou não
 
 ---
 
-## 🎨 Fase 2: Frontend (Interface)
+## 📱 Interface
 
-### Componentes Atualizados
+### Board Kanban (8 Colunas)
 
-#### `KanbanBoard.tsx`
-- 8 colunas: 💡 Ideias → 📋 Backlog → 👩‍💼 Anna → 🧑‍🏫 Frank → 🎨 Rask → 👨‍💻 Bruce → 🔍 Ali → ✅ Done
-- Badge 🟣 Opus nos cards quando `force_opus=true`
-- Cores personalizadas por agente
-
-#### Modal de Task (`page.tsx`)
-- Toggle "Forçar Opus" com aviso de custo (~3-5x mais caro)
-- Switch component (shadcn) instalado
-- Estado `force_opus` salvo no banco
-
-#### Types (`supabase.ts`)
-```typescript
-Task {
-  force_opus: boolean
-  progress_log: Array<{timestamp, action, details}>
-  pr_url: string | null
-  pr_status: 'pending' | 'approved' | 'merged' | 'closed' | null
-}
+```
+┌─────────┬─────────┬──────┬───────┬──────┬───────┬─────┬──────┐
+│ Ideias  │ Backlog │ Anna │ Frank │ Rask │ Bruce │ Ali │ Done │
+└─────────┴─────────┴──────┴───────┴──────┴───────┴─────┴──────┘
 ```
 
-#### Hook `useTasks.ts`
-- Suporta campo `force_opus` no createTask
-- 8 colunas no `TasksByStatus`
-- Tasks novas começam em "ideias"
+### Task Card
+
+Cada card mostra:
+- **Agente atribuído:** 👩‍💼 Anna
+- **Status de execução:**
+  - ⏳ Aguardando
+  - 🔄 Executando (com animação)
+  - ✅ Concluído
+- **Badge Opus:** 🟣 (se forçado)
+- **Prioridade/Tags**
+
+### Chat Interativo
+
+- Abre automaticamente ao arrastar pra coluna de agente
+- Primeiro turno é automático (agente analisa)
+- Pode conversar quantas vezes quiser
+- Histórico completo salvo na task
+- Fecha quando quiser → move pra próxima coluna
 
 ---
 
-## 🤖 Fase 3: Runner (Automação)
+## 💰 Economia de Custo
 
-### Arquitetura
-
-```
-Task arrastada pra coluna do agente
-         ↓
-Runner detecta (poll 10s)
-         ↓
-Seleciona modelo (Opus/Sonnet/Haiku)
-         ↓
-Executa via OpenClaw sub-agent
-         ↓
-Atualiza progress_log
-         ↓
-Adiciona comentários
-         ↓
-[Bruce] Cria PR
-         ↓
-Move pra Done
-```
+✅ **Pula agentes** que não precisa  
+✅ **Conversa direta** com agente (não passa por você)  
+✅ **Bruce não executa** (só formata prompt)  
+✅ **Modelos inteligentes:**
+- 🟣 Opus: tasks marcadas "force_opus"
+- 🔵 Sonnet: maioria das tasks
+- ⚪ Haiku: tasks simples (Frank/Ali low priority)
 
 ### Seleção de Modelo
 
@@ -98,97 +133,212 @@ Move pra Done
 | Agentes: Frank, Ali + prioridade low | ⚪ **Haiku** |
 | Agentes: Frank, Ali + outras | 🔵 **Sonnet** |
 
-### Features do Runner
+---
 
-- ✅ Monitora colunas: anna, frank, rask, bruce, ali
-- ✅ Usa `openclaw sessions spawn` para execução isolada
-- ✅ Atualiza `progress_log` em tempo real
-- ✅ Adiciona comentários incrementais
-- ✅ Cria Pull Request automaticamente (Bruce)
-- ✅ Move task pra Done ao concluir
-- ✅ Volta pra Backlog em caso de erro
+## ⏰ Automação (Crons)
 
-### Arquivos
+### Ideias Matinais (07:00)
+```bash
+# Cron 07:00 - Cria 2-3 ideias pra cada projeto ativo
+# Configurar com: ./setup-crons.sh
+```
 
-- `runner/index.ts` - Runner v2 principal
-- `runner/start.sh` - Helper para iniciar com env vars
-- `runner/README.md` - Documentação completa
+### Ideias Noturnas (22:00)
+```bash
+# Cron 22:00 - Revisa progresso do dia e cria 2-3 ideias
+# Configurar com: ./setup-crons.sh
+```
+
+### Script de Geração
+```bash
+# Gerar ideias manualmente
+bun run scripts/generate-ideas.ts
+```
 
 ---
 
-## 🚀 Como Usar
+## 🗂️ Banco de Dados
 
-### 1. Configurar Environment Variables
+### Tabelas Principais
 
+#### `dev_projects`
+```sql
+- nome, slug, descricao
+- github_repo (para criar PRs)
+- status: active, paused, done, archived
+- cor (hex)
+```
+
+#### `dev_tasks`
+```sql
+- project_id (FK)
+- titulo, descricao, prioridade
+- status: ideias, backlog, anna, frank, rask, bruce, ali, done
+- assigned_agent_id (FK)
+- force_opus: BOOLEAN
+- progress_log: JSONB
+- pr_number, pr_url
+- tags: TEXT[]
+- ordem: INTEGER
+```
+
+#### `dev_agents`
+```sql
+- nome, slug, papel
+- avatar_emoji
+- descricao
+- ativo: BOOLEAN
+```
+
+#### `dev_task_comments`
+```sql
+- task_id (FK)
+- agent_id (FK nullable)
+- conteudo: TEXT
+- tipo: user, agent, system
+```
+
+---
+
+## 🎯 Exemplos de Uso
+
+### Cenário 1: Feature Simples (só design)
+```
+Backlog → Rask → Done
+```
+**Custo:** 1 agente (Sonnet)
+
+### Cenário 2: Bug Crítico
+```
+Backlog → Bruce → Ali → Done → PR
+```
+**Custo:** 2 agentes (Sonnet + Haiku)
+
+### Cenário 3: Feature Completa
+```
+Backlog → Anna → Frank → Rask → Bruce → Ali → Done → PR
+```
+**Custo:** 5 agentes (mix de Opus/Sonnet/Haiku)
+
+### Cenário 4: Ajuste no Design
+```
+Bruce → (volta) Rask → Bruce → Done
+```
+**Flexível:** Pode voltar/pular conforme necessário
+
+---
+
+## 🔧 Setup
+
+### 1. Instalar Dependências
+```bash
+cd aiteam-app
+bun install
+```
+
+### 2. Configurar Env Vars
 ```bash
 cp .env.example .env.local
-# Editar .env.local com as chaves corretas
+
+# Preencher:
+NEXT_PUBLIC_SUPABASE_URL=https://supabase-dev.lercom.com.br
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+OPENCLAW_GATEWAY_URL=http://localhost:3033
+OPENCLAW_TOKEN=...
 ```
 
-### 2. Iniciar Runner
-
+### 3. Rodar Dev Server
 ```bash
-cd runner
-pnpm install
-./start.sh
+bun dev
 ```
 
-### 3. Usar o Board
-
-1. Criar task → cai em **Ideias**
-2. Arrastar pra **Backlog** → aprovada
-3. Arrastar pra coluna do agente (ex: **Bruce**) → runner executa automaticamente
-4. Agente trabalha, comenta, cria PR
-5. Task vai pra **Done**
-
-### 4. Forçar Opus
-
-- Ao criar/editar task, ativar toggle **🟣 Forçar Opus**
-- Modelo Opus será usado independente do agente/prioridade
-- Custo ~3-5x maior, mas maior capacidade
+### 4. Configurar Crons (Opcional)
+```bash
+cd ..
+./setup-crons.sh
+```
 
 ---
 
-## 📊 Custo Estimado
+## 📚 Stack Tecnológica
 
-| Modelo | Input | Output | Uso Recomendado |
-|--------|-------|--------|-----------------|
-| 🟣 Opus | $15/M tokens | $75/M tokens | Tasks complexas, críticas |
-| 🔵 Sonnet | $3/M tokens | $15/M tokens | 80% das tasks |
-| ⚪ Haiku | $0.25/M tokens | $1.25/M tokens | Tarefas triviais |
+### Frontend
+- **Next.js 16** + React 19
+- **TypeScript**
+- **Tailwind CSS 4**
+- **shadcn/ui** (componentes)
+- **@hello-pangea/dnd** (drag-and-drop)
+- **date-fns** (datas)
 
-**Economia estimada:** ~60-70% usando Haiku/Sonnet ao invés de Opus em todas as tasks.
+### Backend
+- **Supabase** (PostgreSQL + Realtime + Auth)
+- **OpenClaw** (orquestração de agentes AI)
+- **Bun** (runtime + package manager)
+
+### Integrações
+- **GitHub API** (issues, PRs)
+- **Anthropic Claude** (via OpenClaw)
 
 ---
 
-## 🔄 Próximos Passos (Futuro)
+## 🚀 Deploy
 
-- [ ] Dashboard de custos por agente/modelo
-- [ ] Histórico de execuções
-- [ ] Retry automático em caso de falha
-- [ ] Notificações quando PR for criada
-- [ ] Aprovação de PR via board
-- [ ] Métricas de performance (tempo médio por agente)
-- [ ] Configuração de modelos por agente via UI
+### DEV
+```bash
+git checkout dev
+git push origin dev
+# Coolify detecta push → deploy automático em dev.lercom.com.br
+```
+
+### PROD
+```bash
+# 1. Testar em dev primeiro
+# 2. Merge dev → main
+git checkout main
+git merge dev
+git push origin main
+# 3. Deploy manual via SSH ou GitHub Actions
+```
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Runner não detecta tasks
-- Verificar env vars (SUPABASE_URL, SUPABASE_SERVICE_KEY)
-- Conferir se tasks estão nas colunas dos agentes (não em ideias/backlog)
+### Chat não abre automaticamente
+- Verificar se agente está configurado corretamente no banco
+- Checar console do navegador por erros
+- Confirmar que coluna é de agente (anna/frank/rask/bruce/ali)
 
-### OpenClaw spawn falha
-- Runner usa fallback (modo simulado)
-- Verificar se `openclaw` CLI está disponível no PATH
+### Primeiro turno não executa
+- Verificar se OpenClaw está rodando (http://localhost:3033)
+- Checar env var `OPENCLAW_TOKEN`
+- Ver logs do OpenClaw (`openclaw logs`)
 
-### PR não é criada
-- Verificar se `gh` CLI está instalado e autenticado
-- Conferir se projeto tem `github_repo` configurado
+### Crons não executam
+- Listar crons: `curl http://localhost:3033/api/cron/list`
+- Verificar timezone: `America/Sao_Paulo`
+- Checar logs do OpenClaw
+
+### PR não cria
+- Verificar se `github_repo` está configurado no projeto
+- Conferir permissões do token do GitHub
+- Verificar branch `dev` existe no repo
 
 ---
 
-**Data de Implementação:** 2026-02-25  
-**Versão:** 2.0  
-**Status:** ✅ Implementado e testado
+## 📝 Próximos Passos (Futuro)
+
+- [ ] Dashboard de custos por agente/modelo
+- [ ] Configuração de agentes customizados
+- [ ] Templates de tasks
+- [ ] Exportar/importar projetos
+- [ ] Integração com Linear, Jira, etc.
+- [ ] Mobile app (React Native)
+- [ ] Modo SaaS multi-tenant
+
+---
+
+## 📄 Licença
+
+Propriedade privada - Bruno Lebrão © 2026
