@@ -74,6 +74,7 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent }: Tas
   const { comments, loading, addUserMessage, addAgentMessage } = useTaskComments(task.id)
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
+  const [hasExecutedFirstTurn, setHasExecutedFirstTurn] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -83,6 +84,47 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent }: Tas
   useEffect(() => {
     scrollToBottom()
   }, [comments])
+
+  // Primeiro turno automático quando chat abre
+  useEffect(() => {
+    const executeFirstTurn = async () => {
+      // Só executa se:
+      // - Chat está aberto
+      // - Tem agente atribuído
+      // - Não tem mensagens ainda
+      // - Tem callback de envio
+      // - Ainda não executou primeiro turno
+      if (open && agent && comments.length === 0 && onSendToAgent && !hasExecutedFirstTurn && !loading) {
+        setHasExecutedFirstTurn(true)
+        setSending(true)
+
+        try {
+          // Mensagem inicial automática
+          const firstMessage = `Olá ${agent.nome}! Esta task foi atribuída para você. Analise e me diga como podemos proceder.`
+          
+          // Adiciona mensagem do usuário
+          await addUserMessage(firstMessage)
+          
+          // Obtém resposta do agente
+          const response = await onSendToAgent(firstMessage, agent)
+          await addAgentMessage(response, agent.id)
+        } catch (err) {
+          console.error('Erro no primeiro turno automático:', err)
+        } finally {
+          setSending(false)
+        }
+      }
+    }
+
+    executeFirstTurn()
+  }, [open, agent, comments.length, onSendToAgent, hasExecutedFirstTurn, loading, addUserMessage, addAgentMessage])
+
+  // Reset quando fecha o chat
+  useEffect(() => {
+    if (!open) {
+      setHasExecutedFirstTurn(false)
+    }
+  }, [open])
 
   const handleSend = async () => {
     if (!message.trim() || sending) return
