@@ -49,10 +49,7 @@ function ProjectCard({ project, onToggleAutoIdeas }: {
   const done = counts.done
   const progress = total > 0 ? Math.round((done / total) * 100) : 0
 
-  const handleAutoIdeasToggle = async (e: React.MouseEvent, enabled: boolean) => {
-    e.preventDefault() // Evita navegação
-    e.stopPropagation()
-    
+  const handleAutoIdeasToggle = async (enabled: boolean) => {
     setIsTogglingAutoIdeas(true)
     try {
       await onToggleAutoIdeas(project.id, enabled)
@@ -127,7 +124,7 @@ function ProjectCard({ project, onToggleAutoIdeas }: {
               </div>
               <Switch
                 checked={project.auto_ideas}
-                onCheckedChange={(checked) => handleAutoIdeasToggle(event as any, checked)}
+                onCheckedChange={handleAutoIdeasToggle}
                 disabled={isTogglingAutoIdeas}
                 onClick={(e) => e.stopPropagation()}
               />
