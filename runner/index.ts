@@ -90,23 +90,40 @@ function selectModel(task: Task, agent: Agent): string {
 
 // Adiciona entrada no progress_log
 async function addProgressLog(taskId: string, action: string, details: string) {
-  const { data: task } = await supabase
-    .from('dev_tasks')
-    .select('progress_log')
-    .eq('id', taskId)
-    .single()
+  try {
+    const { data: task, error: fetchError } = await supabase
+      .from('dev_tasks')
+      .select('progress_log')
+      .eq('id', taskId)
+      .single()
 
-  const currentLog = task?.progress_log || []
-  const newEntry = {
-    timestamp: new Date().toISOString(),
-    action,
-    details,
+    if (fetchError) {
+      console.error('Erro ao buscar task para progress_log:', fetchError)
+      return
+    }
+
+    const currentLog = Array.isArray(task?.progress_log) ? task.progress_log : []
+    const newEntry = {
+      timestamp: new Date().toISOString(),
+      action,
+      details,
+    }
+
+    const updatedLog = [...currentLog, newEntry]
+    
+    const { error: updateError } = await supabase
+      .from('dev_tasks')
+      .update({ progress_log: updatedLog })
+      .eq('id', taskId)
+
+    if (updateError) {
+      console.error('Erro ao atualizar progress_log:', updateError)
+    } else {
+      console.log(`📝 Progress log: ${action} - ${details}`)
+    }
+  } catch (error) {
+    console.error('Erro em addProgressLog:', error)
   }
-
-  await supabase
-    .from('dev_tasks')
-    .update({ progress_log: [...currentLog, newEntry] })
-    .eq('id', taskId)
 }
 
 // Adiciona comentário na task
@@ -232,7 +249,9 @@ async function runClaudeViaOpenClaw(prompt: string, model: string, agentSlug: st
 
     proc.on('close', (code) => {
       if (code === 0) {
-        resolve(output)
+        // Filtra metadata do OpenClaw e pega só a resposta
+        const cleaned = cleanOpenClawOutput(output)
+        resolve(cleaned)
       } else {
         // Fallback: simula resposta
         console.warn('OpenClaw spawn falhou, usando fallback')
@@ -244,6 +263,48 @@ async function runClaudeViaOpenClaw(prompt: string, model: string, agentSlug: st
       resolve(`[Simulado] Tarefa analisada e concluída.`)
     })
   })
+}
+
+// Remove metadata do OpenClaw e retorna só a resposta do agente
+function cleanOpenClawOutput(raw: string): string {
+  const lines = raw.split('\n')
+  const cleanedLines: string[] = []
+  let inAgentResponse = false
+  
+  for (const line of lines) {
+    // Skip linhas de metadata do OpenClaw
+    if (
+      line.includes('Session store:') ||
+      line.includes('Sessions listed:') ||
+      line.includes('Kind') ||
+      line.includes('Flags') ||
+      line.includes('direct agent:') ||
+      line.includes('group agent:') ||
+      line.includes('system id:') ||
+      line.match(/^\d+k\/\d+k/) || // Context usage (112k/1000k)
+      line.trim().length === 0
+    ) {
+      continue
+    }
+    
+    // Detecta início da resposta do agente
+    if (!inAgentResponse && line.trim().length > 0 && !line.includes('Age') && !line.includes('Model')) {
+      inAgentResponse = true
+    }
+    
+    if (inAgentResponse) {
+      cleanedLines.push(line)
+    }
+  }
+  
+  const result = cleanedLines.join('\n').trim()
+  
+  // Se ficou vazio ou muito curto, retorna simulado
+  if (!result || result.length < 20) {
+    return '[Simulado] Task analisada. Aguardando implementação completa do agente.'
+  }
+  
+  return result
 }
 
 // Personas dos agentes
