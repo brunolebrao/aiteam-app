@@ -277,7 +277,7 @@ Use markdown bem estruturado e seja detalhista.`
       // Ignora erro ao deletar
     }
 
-    console.log('📨 [process-task] OpenClaw CLI output:', output.substring(0, 200))
+    console.log('📨 [process-task] OpenClaw CLI output (FULL):', output)
     console.log('📨 [process-task] Exit code:', exitCode)
 
     if (exitCode !== 0 || !output) {
@@ -285,33 +285,24 @@ Use markdown bem estruturado e seja detalhista.`
       throw new Error(`OpenClaw CLI falhou (exit ${exitCode}): ${error}`)
     }
     
-    // Remove metadata do OpenClaw e pega só a resposta
+    // Parse mais simples: pega tudo depois da tabela de sessions
     const lines = output.split('\n')
-    const responseLines: string[] = []
-    let foundResponse = false
+    let startIndex = -1
     
-    for (const line of lines) {
-      // Pula linhas de metadata
-      if (line.includes('Session store:') || 
-          line.includes('Sessions listed:') ||
-          line.includes('Kind') ||
-          line.includes('direct') ||
-          line.includes('group') ||
-          line.match(/^\d+k\/\d+k/)) {
-        continue
-      }
-      
-      if (line.trim().length > 0 && !line.includes('Age') && !line.includes('Model')) {
-        foundResponse = true
-      }
-      
-      if (foundResponse) {
-        responseLines.push(line)
+    // Procura pela última linha da tabela (contém "Flags" ou "id:")
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].includes(' id:') || lines[i].includes('Flags')) {
+        startIndex = i + 1
+        break
       }
     }
     
-    const cleanOutput = responseLines.join('\n').trim()
-    console.log('✅ [process-task] Output limpo (preview):', cleanOutput.substring(0, 100) + '...')
+    const cleanOutput = startIndex > 0 
+      ? lines.slice(startIndex).join('\n').trim()
+      : output.trim()  // Fallback: usa tudo se não achar pattern
+    
+    console.log('✅ [process-task] Output limpo (length):', cleanOutput.length)
+    console.log('✅ [process-task] Output limpo (preview):', cleanOutput.substring(0, 200) + '...')
     
     const modelUsed = task.force_opus ? 'anthropic/claude-opus-4' : 'anthropic/claude-sonnet-4-5'
 
