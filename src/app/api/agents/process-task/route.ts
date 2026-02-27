@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import Anthropic from '@anthropic-ai/sdk'
 
 /**
  * API para processar tasks com agentes fictícios
@@ -228,81 +229,36 @@ ${previousContext}
 Analise a task acima e gere sua resposta no formato apropriado para seu papel.
 Use markdown bem estruturado e seja detalhista.`
 
-    // Gerar output usando OpenClaw CLI (Magu assume a persona)
-    console.log('🌐 [process-task] Chamando Magu via OpenClaw CLI...')
+    // Gerar output usando Anthropic API (Magu assume a persona)
+    console.log('🤖 [process-task] Chamando Anthropic API...')
     
-    const { spawn } = await import('child_process')
-    const { promisify } = await import('util')
-    
-    // Salva prompt em arquivo temporário
-    const fs = await import('fs')
-    const path = await import('path')
-    const os = await import('os')
-    
-    const tmpDir = os.tmpdir()
-    const promptFile = path.join(tmpDir, `agent-${agentSlug}-${Date.now()}.txt`)
-    fs.writeFileSync(promptFile, fullPrompt)
-    
-    console.log('📝 [process-task] Prompt salvo em:', promptFile)
-    
-    // Chama OpenClaw CLI
-    const proc = spawn('openclaw', [
-      'sessions', 'spawn',
-      '--task', fullPrompt,
-      '--label', `agent-${agentSlug}-${Date.now()}`,
-      '--cleanup', 'delete',
-      '--timeout-seconds', '60',
-      '--model', task.force_opus ? 'opus' : 'sonnet',
-    ])
-
-    let output = ''
-    let error = ''
-
-    for await (const chunk of proc.stdout) {
-      output += chunk.toString()
-    }
-
-    for await (const chunk of proc.stderr) {
-      error += chunk.toString()
-    }
-
-    const exitCode = await new Promise<number>((resolve) => {
-      proc.on('close', resolve)
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     })
     
-    // Limpa arquivo temporário
-    try {
-      fs.unlinkSync(promptFile)
-    } catch (e) {
-      // Ignora erro ao deletar
-    }
-
-    console.log('📨 [process-task] OpenClaw CLI output (FULL):', output)
-    console.log('📨 [process-task] Exit code:', exitCode)
-
-    if (exitCode !== 0 || !output) {
-      console.error('❌ [process-task] OpenClaw CLI falhou:', error)
-      throw new Error(`OpenClaw CLI falhou (exit ${exitCode}): ${error}`)
-    }
+    const modelName = task.force_opus 
+      ? 'claude-opus-4-20250514' 
+      : 'claude-sonnet-4-20250514'
     
-    // Parse mais simples: pega tudo depois da tabela de sessions
-    const lines = output.split('\n')
-    let startIndex = -1
+    console.log('📡 [process-task] Modelo:', modelName)
     
-    // Procura pela última linha da tabela (contém "Flags" ou "id:")
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (lines[i].includes(' id:') || lines[i].includes('Flags')) {
-        startIndex = i + 1
-        break
-      }
-    }
+    const response = await anthropic.messages.create({
+      model: modelName,
+      max_tokens: 4096,
+      messages: [
+        {
+          role: 'user',
+          content: fullPrompt,
+        },
+      ],
+    })
     
-    const cleanOutput = startIndex > 0 
-      ? lines.slice(startIndex).join('\n').trim()
-      : output.trim()  // Fallback: usa tudo se não achar pattern
+    const cleanOutput = response.content[0].type === 'text' 
+      ? response.content[0].text 
+      : ''
     
-    console.log('✅ [process-task] Output limpo (length):', cleanOutput.length)
-    console.log('✅ [process-task] Output limpo (preview):', cleanOutput.substring(0, 200) + '...')
+    console.log('✅ [process-task] Output gerado (length):', cleanOutput.length)
+    console.log('✅ [process-task] Output gerado (preview):', cleanOutput.substring(0, 200) + '...')
     
     const modelUsed = task.force_opus ? 'anthropic/claude-opus-4' : 'anthropic/claude-sonnet-4-5'
 
