@@ -9,16 +9,16 @@ O AI Team usa **agentes fictícios** - o Magu assume as personas dos agentes (An
 Adicione no `.env.local`:
 
 ```bash
-# OpenClaw Gateway (Magu assume as personas dos agentes)
-OPENCLAW_GATEWAY_URL=http://localhost:3033
-OPENCLAW_TOKEN=
-
 # Supabase (já configurado)
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
-⚠️ **IMPORTANTE:** Não usa Anthropic API externa! O Magu (via OpenClaw) assume os papéis dos agentes.
+⚠️ **IMPORTANTE:** 
+- Não precisa de ANTHROPIC_API_KEY externa!
+- Não precisa de OPENCLAW_GATEWAY_URL!
+- Usa OpenClaw CLI diretamente (`openclaw sessions spawn`)
+- O Magu (via OpenClaw) assume os papéis dos agentes
 
 ## 🎯 Fluxo de Processamento
 
@@ -28,9 +28,10 @@ Arrastar task para coluna de agente → trigger automático
 ### 2. **API Processing** (`/api/agents/process-task`)
 - Busca task + contexto anterior
 - Monta prompt com persona do agente
-- **Chama Magu via OpenClaw** (spawn sub-sessão)
+- **Chama OpenClaw CLI** (`openclaw sessions spawn`)
 - **Magu assume a persona** e responde
-- Salva output no banco
+- Remove metadata do output
+- Salva output limpo no banco
 
 ### 3. **Realtime Update**
 - Output aparece automaticamente no chat

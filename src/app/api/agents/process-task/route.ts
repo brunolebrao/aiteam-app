@@ -228,79 +228,90 @@ ${previousContext}
 Analise a task acima e gere sua resposta no formato apropriado para seu papel.
 Use markdown bem estruturado e seja detalhista.`
 
-    // Gerar output usando OpenClaw (Magu assume a persona)
-    const OPENCLAW_GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'http://localhost:3033'
-    const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN || ''
+    // Gerar output usando OpenClaw CLI (Magu assume a persona)
+    console.log('🌐 [process-task] Chamando Magu via OpenClaw CLI...')
     
-    console.log('🌐 [process-task] Chamando OpenClaw Gateway:', OPENCLAW_GATEWAY_URL)
-    console.log('🔑 [process-task] Token configurado:', OPENCLAW_TOKEN ? 'SIM' : 'NÃO')
+    const { spawn } = await import('child_process')
+    const { promisify } = await import('util')
+    
+    // Salva prompt em arquivo temporário
+    const fs = await import('fs')
+    const path = await import('path')
+    const os = await import('os')
+    
+    const tmpDir = os.tmpdir()
+    const promptFile = path.join(tmpDir, `agent-${agentSlug}-${Date.now()}.txt`)
+    fs.writeFileSync(promptFile, fullPrompt)
+    
+    console.log('📝 [process-task] Prompt salvo em:', promptFile)
+    
+    // Chama OpenClaw CLI
+    const proc = spawn('openclaw', [
+      'sessions', 'spawn',
+      '--task', fullPrompt,
+      '--label', `agent-${agentSlug}-${Date.now()}`,
+      '--cleanup', 'delete',
+      '--timeout-seconds', '60',
+      '--model', task.force_opus ? 'opus' : 'sonnet',
+    ])
 
-    const openclawResponse = await fetch(`${OPENCLAW_GATEWAY_URL}/api/v1/sessions/spawn`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
-      },
-      body: JSON.stringify({
-        task: fullPrompt,
-        label: `agent-${agentSlug}-${Date.now()}`,
-        cleanup: 'delete',
-        timeoutSeconds: 60,
-        model: task.force_opus ? 'opus' : 'sonnet', // usa alias
-      }),
+    let output = ''
+    let error = ''
+
+    for await (const chunk of proc.stdout) {
+      output += chunk.toString()
+    }
+
+    for await (const chunk of proc.stderr) {
+      error += chunk.toString()
+    }
+
+    const exitCode = await new Promise<number>((resolve) => {
+      proc.on('close', resolve)
     })
-
-    if (!openclawResponse.ok) {
-      const errorText = await openclawResponse.text()
-      console.error('❌ [process-task] OpenClaw error (status ' + openclawResponse.status + '):', errorText)
-      throw new Error(`OpenClaw retornou ${openclawResponse.status}: ${errorText}`)
+    
+    // Limpa arquivo temporário
+    try {
+      fs.unlinkSync(promptFile)
+    } catch (e) {
+      // Ignora erro ao deletar
     }
 
-    const openclawData = await openclawResponse.json()
-    console.log('📨 [process-task] OpenClaw response:', openclawData)
-    
-    // Aguarda resultado do spawn
-    if (openclawData.status !== 'accepted') {
-      console.error('❌ [process-task] Spawn não foi aceito:', openclawData)
-      throw new Error(`OpenClaw spawn não foi aceito: ${openclawData.status}`)
+    console.log('📨 [process-task] OpenClaw CLI output:', output.substring(0, 200))
+    console.log('📨 [process-task] Exit code:', exitCode)
+
+    if (exitCode !== 0 || !output) {
+      console.error('❌ [process-task] OpenClaw CLI falhou:', error)
+      throw new Error(`OpenClaw CLI falhou (exit ${exitCode}): ${error}`)
     }
-
-    // Busca resultado da sessão
-    const sessionKey = openclawData.childSessionKey
-    console.log('🔑 [process-task] Session key:', sessionKey)
     
-    // Aguarda um pouco pra sessão processar
-    console.log('⏳ [process-task] Aguardando processamento (2s)...')
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // Remove metadata do OpenClaw e pega só a resposta
+    const lines = output.split('\n')
+    const responseLines: string[] = []
+    let foundResponse = false
     
-    console.log('📜 [process-task] Buscando histórico da sessão...')
-    const historyResponse = await fetch(`${OPENCLAW_GATEWAY_URL}/api/v1/sessions/history`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
-      },
-      body: JSON.stringify({
-        sessionKey,
-        limit: 5,
-      }),
-    })
-
-    if (!historyResponse.ok) {
-      const errorText = await historyResponse.text()
-      console.error('❌ [process-task] Erro ao buscar histórico:', errorText)
-      throw new Error(`Erro ao buscar histórico: ${historyResponse.status}`)
+    for (const line of lines) {
+      // Pula linhas de metadata
+      if (line.includes('Session store:') || 
+          line.includes('Sessions listed:') ||
+          line.includes('Kind') ||
+          line.includes('direct') ||
+          line.includes('group') ||
+          line.match(/^\d+k\/\d+k/)) {
+        continue
+      }
+      
+      if (line.trim().length > 0 && !line.includes('Age') && !line.includes('Model')) {
+        foundResponse = true
+      }
+      
+      if (foundResponse) {
+        responseLines.push(line)
+      }
     }
-
-    const historyData = await historyResponse.json()
-    console.log('📨 [process-task] Histórico recebido:', historyData)
     
-    // Pega última mensagem do assistente
-    const assistantMessages = historyData.messages?.filter((m: any) => m.role === 'assistant') || []
-    console.log(`💬 [process-task] Mensagens do assistente: ${assistantMessages.length}`)
-    
-    const output = assistantMessages[assistantMessages.length - 1]?.content || 'Erro ao gerar resposta'
-    console.log('✅ [process-task] Output gerado (preview):', output.substring(0, 100) + '...')
+    const cleanOutput = responseLines.join('\n').trim()
+    console.log('✅ [process-task] Output limpo (preview):', cleanOutput.substring(0, 100) + '...')
     
     const modelUsed = task.force_opus ? 'anthropic/claude-opus-4' : 'anthropic/claude-sonnet-4-5'
 
@@ -326,7 +337,7 @@ Use markdown bem estruturado e seja detalhista.`
         task_id: taskId,
         agent_id: agentData.id,
         tipo: 'agent_output',
-        conteudo: output,
+        conteudo: cleanOutput,
         metadata: {
           prompt: fullPrompt,
           model: modelUsed,
@@ -344,7 +355,7 @@ Use markdown bem estruturado e seja detalhista.`
     
     return NextResponse.json({
       success: true,
-      output,
+      output: cleanOutput,
       prompt: fullPrompt,
       model: modelUsed,
       agent: {
