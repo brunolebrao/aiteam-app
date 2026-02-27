@@ -222,32 +222,66 @@ ${previousContext}
 Analise a task acima e gere sua resposta no formato apropriado para seu papel.
 Use markdown bem estruturado e seja detalhista.`
 
-    // Gerar output usando Anthropic API
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    // Gerar output usando OpenClaw (Magu assume a persona)
+    const OPENCLAW_GATEWAY_URL = process.env.OPENCLAW_GATEWAY_URL || 'http://localhost:3033'
+    const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN || ''
+
+    const openclawResponse = await fetch(`${OPENCLAW_GATEWAY_URL}/api/v1/sessions/spawn`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
       },
       body: JSON.stringify({
-        model: task.force_opus ? 'claude-opus-4-20250514' : 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        messages: [
-          {
-            role: 'user',
-            content: fullPrompt,
-          },
-        ],
+        task: fullPrompt,
+        label: `agent-${agentSlug}-${Date.now()}`,
+        cleanup: 'delete',
+        timeoutSeconds: 60,
+        model: task.force_opus ? 'opus' : 'sonnet', // usa alias
       }),
     })
 
-    if (!anthropicResponse.ok) {
-      throw new Error('Erro ao gerar resposta do agente')
+    if (!openclawResponse.ok) {
+      const errorText = await openclawResponse.text()
+      console.error('OpenClaw error:', errorText)
+      throw new Error('Erro ao gerar resposta do agente via OpenClaw')
     }
 
-    const anthropicData = await anthropicResponse.json()
-    const output = anthropicData.content[0].text
+    const openclawData = await openclawResponse.json()
+    
+    // Aguarda resultado do spawn
+    if (openclawData.status !== 'accepted') {
+      throw new Error('OpenClaw spawn não foi aceito')
+    }
+
+    // Busca resultado da sessão
+    const sessionKey = openclawData.childSessionKey
+    
+    // Aguarda um pouco pra sessão processar
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    const historyResponse = await fetch(`${OPENCLAW_GATEWAY_URL}/api/v1/sessions/history`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENCLAW_TOKEN}`,
+      },
+      body: JSON.stringify({
+        sessionKey,
+        limit: 5,
+      }),
+    })
+
+    if (!historyResponse.ok) {
+      throw new Error('Erro ao buscar histórico da sessão')
+    }
+
+    const historyData = await historyResponse.json()
+    
+    // Pega última mensagem do assistente
+    const assistantMessages = historyData.messages?.filter((m: any) => m.role === 'assistant') || []
+    const output = assistantMessages[assistantMessages.length - 1]?.content || 'Erro ao gerar resposta'
+    
     const modelUsed = task.force_opus ? 'anthropic/claude-opus-4' : 'anthropic/claude-sonnet-4-5'
 
     // Buscar agente do banco para salvar referência

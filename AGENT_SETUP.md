@@ -9,13 +9,16 @@ O AI Team usa **agentes fictícios** - o Magu assume as personas dos agentes (An
 Adicione no `.env.local`:
 
 ```bash
-# Anthropic API Key (necessária para processar tasks com agentes)
-ANTHROPIC_API_KEY=sk-ant-...
+# OpenClaw Gateway (Magu assume as personas dos agentes)
+OPENCLAW_GATEWAY_URL=http://localhost:3033
+OPENCLAW_TOKEN=
 
 # Supabase (já configurado)
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
+
+⚠️ **IMPORTANTE:** Não usa Anthropic API externa! O Magu (via OpenClaw) assume os papéis dos agentes.
 
 ## 🎯 Fluxo de Processamento
 
@@ -25,7 +28,8 @@ Arrastar task para coluna de agente → trigger automático
 ### 2. **API Processing** (`/api/agents/process-task`)
 - Busca task + contexto anterior
 - Monta prompt com persona do agente
-- Chama Anthropic API (Sonnet ou Opus)
+- **Chama Magu via OpenClaw** (spawn sub-sessão)
+- **Magu assume a persona** e responde
 - Salva output no banco
 
 ### 3. **Realtime Update**
@@ -144,12 +148,14 @@ Arrastar task para coluna de agente → trigger automático
 
 ## 🚀 Deploy Checklist
 
-- [ ] `ANTHROPIC_API_KEY` configurada no Coolify
+- [ ] `OPENCLAW_GATEWAY_URL` configurada (http://localhost:3033)
+- [ ] OpenClaw Gateway rodando e acessível
 - [ ] Migration `00010` rodada no Supabase
 - [ ] Build passou sem erros
 - [ ] Testar drag-and-drop em dev
 - [ ] Verificar toasts aparecem
 - [ ] Confirmar outputs salvam no banco
+- [ ] Confirmar Magu responde como agentes
 
 ## 🐛 Troubleshooting
 
@@ -160,9 +166,10 @@ Arrastar task para coluna de agente → trigger automático
 4. Checar se agente existe no banco (`dev_agents`)
 
 ### Erro 500 na API
-1. Verificar `ANTHROPIC_API_KEY` configurada
-2. Confirmar modelo correto (sonnet-4-20250514)
-3. Ver logs do servidor
+1. Verificar `OPENCLAW_GATEWAY_URL` acessível
+2. Confirmar OpenClaw rodando (localhost:3033)
+3. Ver logs do servidor Next.js
+4. Checar logs do OpenClaw
 
 ### Toast não aparece
 1. Verificar `<Toaster />` no layout
