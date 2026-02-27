@@ -222,26 +222,70 @@ ${previousContext}
 Analise a task acima e gere sua resposta no formato apropriado para seu papel.
 Use markdown bem estruturado e seja detalhista.`
 
-    // Aqui você (Magu) vai processar isso como o agente
-    // Por enquanto retorno mock pra testar estrutura
-    const mockOutput = `## 📋 Análise - ${persona.name}
+    // Gerar output usando Anthropic API
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: task.force_opus ? 'claude-opus-4-20250514' : 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        messages: [
+          {
+            role: 'user',
+            content: fullPrompt,
+          },
+        ],
+      }),
+    })
 
-Processando task: **${task.titulo}**
+    if (!anthropicResponse.ok) {
+      throw new Error('Erro ao gerar resposta do agente')
+    }
 
-*[Aqui virá sua resposta como ${persona.name}]*
+    const anthropicData = await anthropicResponse.json()
+    const output = anthropicData.content[0].text
+    const modelUsed = task.force_opus ? 'anthropic/claude-opus-4' : 'anthropic/claude-sonnet-4-5'
 
-### ✅ Próximos Passos
-1. Implementar geração real via OpenClaw
-2. Salvar output no banco
-3. Renderizar card bonitinho
+    // Buscar agente do banco para salvar referência
+    const { data: agentData } = await supabase
+      .from('dev_agents')
+      .select('id')
+      .eq('slug', agentSlug)
+      .single()
 
-🔵 Sonnet`
+    if (!agentData) {
+      throw new Error(`Agente '${agentSlug}' não encontrado no banco`)
+    }
+
+    // Salvar output no banco
+    const { error: saveError } = await supabase
+      .from('dev_task_comments')
+      .insert({
+        task_id: taskId,
+        agent_id: agentData.id,
+        tipo: 'agent_output',
+        conteudo: output,
+        metadata: {
+          prompt: fullPrompt,
+          model: modelUsed,
+          timestamp: new Date().toISOString(),
+        },
+      })
+
+    if (saveError) {
+      console.error('Erro ao salvar output:', saveError)
+      throw new Error('Erro ao salvar output no banco')
+    }
 
     return NextResponse.json({
       success: true,
-      output: mockOutput,
+      output,
       prompt: fullPrompt,
-      model: 'anthropic/claude-sonnet-4-5',
+      model: modelUsed,
       agent: {
         slug: agentSlug,
         name: persona.name,

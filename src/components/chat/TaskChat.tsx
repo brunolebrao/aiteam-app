@@ -106,6 +106,7 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent, onApp
   const [sending, setSending] = useState(false)
   const [approving, setApproving] = useState(false)
   const [hasExecutedFirstTurn, setHasExecutedFirstTurn] = useState(false)
+  const [processingAgent, setProcessingAgent] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   // Verifica se tem mensagens do agente (pode aprovar)
@@ -125,10 +126,13 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent, onApp
       // Só executa se:
       // - Chat está aberto
       // - Tem agente atribuído
+      // - Não tem agent_output (processamento automático já rodou)
       // - Não tem mensagens ainda
       // - Tem callback de envio
       // - Ainda não executou primeiro turno
-      if (open && agent && comments.length === 0 && onSendToAgent && !hasExecutedFirstTurn && !loading) {
+      const hasAgentOutput = comments.some(c => c.tipo === 'agent_output')
+      
+      if (open && agent && comments.length === 0 && !hasAgentOutput && onSendToAgent && !hasExecutedFirstTurn && !loading) {
         setHasExecutedFirstTurn(true)
         setSending(true)
 

@@ -4,6 +4,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { 
   IoEllipsisHorizontal,
   IoAdd,
@@ -350,7 +351,7 @@ export function KanbanBoard({
 
     await onMoveTask(draggableId, newStatus, newOrder)
 
-    // Auto-open chat when moving to agent columns
+    // Auto-process with agent when moving to agent columns
     const agentColumns = ['anna', 'frank', 'rask', 'bruce', 'ali']
     if (agentColumns.includes(newStatus)) {
       // Encontra a task que foi movida
@@ -359,11 +360,61 @@ export function KanbanBoard({
         .find(t => t.id === draggableId)
       
       if (movedTask) {
-        // Aguarda um pouco pra task atualizar no banco
-        setTimeout(() => {
-          onOpenChat(movedTask)
-        }, 300)
+        // Trigger agent processing + open chat
+        processTaskWithAgent(movedTask, newStatus)
       }
+    }
+  }
+
+  const processTaskWithAgent = async (task: TaskWithAgent, agentSlug: string) => {
+    // Mapear slug → emoji
+    const agentEmojis: Record<string, string> = {
+      anna: '📋',
+      frank: '🎯',
+      rask: '🎨',
+      bruce: '💻',
+      ali: '🧪',
+    }
+    
+    const agentNames: Record<string, string> = {
+      anna: 'Anna (PO)',
+      frank: 'Frank (SM)',
+      rask: 'Rask (UX)',
+      bruce: 'Bruce (Dev)',
+      ali: 'Ali (QA)',
+    }
+
+    try {
+      // Toast de progresso
+      const toastId = toast.loading(
+        `${agentEmojis[agentSlug]} ${agentNames[agentSlug]} está analisando...`
+      )
+
+      // Abre chat imediatamente
+      onOpenChat(task)
+
+      // Chama API para processar com agente
+      const response = await fetch('/api/agents/process-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId: task.id,
+          agentSlug,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Erro ao processar task com agente')
+      }
+
+      const data = await response.json()
+      
+      // Output será salvo automaticamente via Realtime no chat
+      toast.success(`✅ ${data.agent.name} finalizou a análise!`, { id: toastId })
+
+    } catch (error) {
+      console.error('Erro ao processar com agente:', error)
+      toast.error('❌ Erro ao processar com agente. Tente novamente.')
     }
   }
 
