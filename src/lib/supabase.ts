@@ -62,7 +62,7 @@ export type TaskComment = {
   id: string
   task_id: string
   agent_id: string | null
-  tipo: 'comment' | 'status_change' | 'assignment' | 'system'
+  tipo: 'comment' | 'status_change' | 'assignment' | 'system' | 'agent_output'
   conteudo: string
   metadata: Record<string, unknown>
   created_at: string

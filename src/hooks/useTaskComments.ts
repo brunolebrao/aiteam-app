@@ -70,6 +70,14 @@ export function useTaskComments(taskId: string) {
     return addComment(content, agentId, 'comment', metadata)
   }
 
+  const addAgentOutput = async (content: string, agentId: string, prompt: string, model: string) => {
+    return addComment(content, agentId, 'agent_output', {
+      prompt,
+      model,
+      timestamp: new Date().toISOString(),
+    })
+  }
+
   useEffect(() => {
     fetchComments()
   }, [fetchComments])
@@ -119,5 +127,6 @@ export function useTaskComments(taskId: string) {
     addComment,
     addUserMessage,
     addAgentMessage,
+    addAgentOutput,
   }
 }

@@ -17,6 +17,7 @@ import { IoSendOutline, IoChatbubbleEllipsesOutline, IoPersonOutline, IoCheckmar
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { useTaskComments, CommentWithAgent } from '@/hooks/useTaskComments'
 import { Task, Agent } from '@/lib/supabase'
+import { AgentOutputCard } from '@/components/agents/AgentOutputCard'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -251,13 +252,36 @@ export function TaskChat({ task, agent, open, onOpenChange, onSendToAgent, onApp
             </div>
           ) : (
             <>
-              {comments.map(comment => (
-                <MessageBubble
-                  key={comment.id}
-                  comment={comment}
-                  isUser={!comment.agent_id}
-                />
-              ))}
+              {comments.map(comment => {
+                // Renderiza output de agente de forma especial
+                if (comment.tipo === 'agent_output' && comment.agent && comment.metadata) {
+                  return (
+                    <AgentOutputCard
+                      key={comment.id}
+                      agent={{
+                        slug: comment.agent.slug,
+                        nome: comment.agent.nome,
+                        papel: comment.agent.papel,
+                        avatar_emoji: comment.agent.avatar_emoji,
+                      }}
+                      output={comment.conteudo}
+                      prompt={comment.metadata.prompt as string || ''}
+                      model={comment.metadata.model as string || 'anthropic/claude-sonnet-4-5'}
+                      createdAt={comment.created_at}
+                      taskTitle={task.titulo}
+                    />
+                  )
+                }
+                
+                // Comentários normais
+                return (
+                  <MessageBubble
+                    key={comment.id}
+                    comment={comment}
+                    isUser={!comment.agent_id}
+                  />
+                )
+              })}
               {sending && (
                 <div className="flex gap-2">
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
