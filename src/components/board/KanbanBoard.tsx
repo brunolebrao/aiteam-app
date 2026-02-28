@@ -115,7 +115,7 @@ function TaskCard({
           {...provided.dragHandleProps}
           className={`mb-2 ${snapshot.isDragging ? 'rotate-2' : ''}`}
         >
-          <Card className={`hover:shadow-md transition-shadow ${snapshot.isDragging ? 'shadow-lg' : ''}`}>
+          <Card className={`group hover:shadow-md transition-shadow ${snapshot.isDragging ? 'shadow-lg' : ''}`}>
             <CardContent className="p-3">
               <div className={`mb-3 rounded-md border bg-gradient-to-br ${gradient} px-2.5 py-1.5`}>
                 <div className="flex items-center gap-2 text-xs">
@@ -206,6 +206,14 @@ function TaskCard({
                     {tag}
                   </Badge>
                 ))}
+              </div>
+
+              <div className="mt-3 hidden rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground group-hover:block">
+                {task.descricao ? (
+                  <p className="line-clamp-3">{task.descricao}</p>
+                ) : (
+                  <p>Sem descrição. Abra detalhes para ver o output.</p>
+                )}
               </div>
 
               <div className="flex items-center justify-between mt-3">
