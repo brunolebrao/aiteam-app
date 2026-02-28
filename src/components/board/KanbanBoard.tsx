@@ -48,6 +48,14 @@ const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-red-100 text-red-700',
 }
 
+const AGENT_GRADIENT: Record<string, string> = {
+  anna: 'from-indigo-500/20 to-indigo-500/5',
+  frank: 'from-blue-500/20 to-blue-500/5',
+  rask: 'from-pink-500/20 to-pink-500/5',
+  bruce: 'from-purple-500/20 to-purple-500/5',
+  ali: 'from-orange-500/20 to-orange-500/5',
+}
+
 const PRIORITY_LABELS: Record<string, string> = {
   low: 'Baixa',
   medium: 'Média',
@@ -96,6 +104,8 @@ function TaskCard({
   onCreateIssue?: () => void
   onViewDetails: () => void
 }) {
+  const gradient = task.assigned_agent?.slug ? AGENT_GRADIENT[task.assigned_agent.slug] : 'from-slate-200 to-slate-50'
+
   return (
     <Draggable draggableId={task.id} index={index}>
       {(provided, snapshot) => (
@@ -107,6 +117,17 @@ function TaskCard({
         >
           <Card className={`hover:shadow-md transition-shadow ${snapshot.isDragging ? 'shadow-lg' : ''}`}>
             <CardContent className="p-3">
+              <div className={`mb-3 rounded-md border bg-gradient-to-br ${gradient} px-2.5 py-1.5`}>
+                <div className="flex items-center gap-2 text-xs">
+                  <span>{task.assigned_agent?.avatar_emoji || '📋'}</span>
+                  <span className="font-medium">{task.assigned_agent?.nome || 'Task'}</span>
+                  <Badge variant="outline" className="text-[10px]">{task.assigned_agent?.apelido || '—'}</Badge>
+                  <span className="ml-auto text-[10px] text-muted-foreground">
+                    {new Date(task.created_at).toLocaleDateString('pt-BR')} {new Date(task.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={onViewDetails}>
                   <p className="font-medium text-sm truncate">
