@@ -115,7 +115,7 @@ function TaskCard({
           {...provided.dragHandleProps}
           className={`mb-2 ${snapshot.isDragging ? 'rotate-2' : ''}`}
         >
-          <Card className={`group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${snapshot.isDragging ? 'shadow-lg' : ''}`}>
+          <Card className={`group transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:scale-[1.01] ${snapshot.isDragging ? 'shadow-lg' : ''}`}>
             <CardContent className="p-3">
               <div className={`mb-3 rounded-md border bg-gradient-to-br ${gradient} px-2.5 py-1.5`}>
                 <div className="flex items-center gap-2 text-xs">
