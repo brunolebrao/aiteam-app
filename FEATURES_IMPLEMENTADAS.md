@@ -15,3 +15,9 @@ Use esta lista para evitar ideias duplicadas.
 ## Automação
 - Crons de ideias (manhã 07:00 / noite 22:00) por projeto com `auto_ideas=true`
 - Integração com Supabase DEV (dev_projects, dev_tasks, dev_task_comments)
+
+## Em andamento
+- (preencher quando iniciar uma implementação relevante)
+
+## Planejado
+- (usar para ideias já aprovadas, mas não implementadas)
