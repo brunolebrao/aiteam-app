@@ -209,7 +209,9 @@ function TaskCard({
               </div>
 
               <div className="mt-3 hidden rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground group-hover:block">
-                {task.descricao ? (
+                {task.latest_output?.conteudo ? (
+                  <p className="line-clamp-4">{task.latest_output.conteudo}</p>
+                ) : task.descricao ? (
                   <p className="line-clamp-3">{task.descricao}</p>
                 ) : (
                   <p>Sem descrição. Abra detalhes para ver o output.</p>

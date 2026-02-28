@@ -5,6 +5,7 @@ import { supabase, Task, Agent } from '@/lib/supabase'
 
 export type TaskWithAgent = Task & {
   assigned_agent?: Agent | null
+  latest_output?: TaskComment | null
 }
 
 export type TasksByStatus = {
@@ -76,8 +77,34 @@ export function useTasks(projectId: string) {
       if (fetchError) throw fetchError
 
       const taskList = data || []
-      setTasks(taskList)
-      organizeTasks(taskList)
+
+      // Buscar último output por task (agent_output)
+      const taskIds = taskList.map(t => t.id)
+      let outputsByTask = new Map<string, TaskComment>()
+      if (taskIds.length > 0) {
+        const { data: outputs } = await supabase
+          .from('dev_task_comments')
+          .select(`*, agent:dev_agents(*)`)
+          .in('task_id', taskIds)
+          .eq('tipo', 'agent_output')
+          .order('created_at', { ascending: false })
+
+        if (outputs) {
+          for (const out of outputs) {
+            if (!outputsByTask.has(out.task_id)) {
+              outputsByTask.set(out.task_id, out)
+            }
+          }
+        }
+      }
+
+      const withOutput = taskList.map(t => ({
+        ...t,
+        latest_output: outputsByTask.get(t.id) || null,
+      }))
+
+      setTasks(withOutput)
+      organizeTasks(withOutput)
 
     } catch (err) {
       console.error('Erro ao buscar tasks:', err)
