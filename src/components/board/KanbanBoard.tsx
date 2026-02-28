@@ -122,15 +122,21 @@ function TaskCard({
                   <span>{task.assigned_agent?.avatar_emoji || '📋'}</span>
                   <span className="font-medium">{task.assigned_agent?.nome || 'Task'}</span>
                   <Badge variant="outline" className="text-[10px]">{task.assigned_agent?.apelido || '—'}</Badge>
-                  <span className="ml-auto text-[10px] text-muted-foreground">
-                    {new Date(task.created_at).toLocaleDateString('pt-BR')} {new Date(task.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  <Badge variant="secondary" className="text-[10px] capitalize">{task.status}</Badge>
+                  {(() => {
+                    const d = new Date(task.created_at)
+                    return isNaN(d.getTime()) ? null : (
+                      <span className="ml-auto text-[10px] text-muted-foreground">
+                        {d.toLocaleDateString('pt-BR')} {d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )
+                  })()}
                 </div>
               </div>
 
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={onViewDetails}>
-                  <p className="font-medium text-sm truncate">
+                  <p className="font-semibold text-sm line-clamp-2">
                     {task.numero && <span className="text-muted-foreground mr-1">#{task.numero}</span>}
                     {task.titulo}
                   </p>
@@ -202,7 +208,7 @@ function TaskCard({
                 )}
 
                 {task.tags?.map(tag => (
-                  <Badge key={tag} variant="outline" className="text-xs">
+                  <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0.5">
                     {tag}
                   </Badge>
                 ))}
@@ -221,7 +227,7 @@ function TaskCard({
               <div className="flex items-center justify-between mt-3">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 px-2">
+                    <Button variant="outline" size="sm" className="h-7 px-2">
                       {task.assigned_agent ? (
                         <span className="flex items-center gap-1">
                           <span>{task.assigned_agent.avatar_emoji}</span>
