@@ -88,6 +88,7 @@ export function useTasks(projectId: string) {
           .in('task_id', taskIds)
           .eq('tipo', 'agent_output')
           .order('created_at', { ascending: false })
+          .limit(200)
 
         if (outputs) {
           for (const out of outputs) {
